@@ -1,104 +1,38 @@
-local touched = false
-local cooldown = 0
-local studsPerSecond = 10
+-- Gets the rig, pathfinding script, and folder container
+local rig = script.Parent.Parent
+local coreScriptsFolder = script.Parent
+local pathfindingScript = coreScriptsFolder.PathfindingScript
 
-local tweenService = game:GetService("TweenService")
-local firstTween = {}
-local secondTween = {}
+-- Sets up the main table
+local main = {}
 
-local link : PathfindingLink = game.Workspace.Skips.Links.MovingPlatforms[script.Parent.Parent.LinkName.Value]
-local attach1 = script.Parent.Parent.Ends.End2.End2
-local attach2 = script.Parent.Parent.Ends.End1.End1
+-- Sets up various general variables
+main.Humanoid = rig.Humanoid
+main.Animator = main.Humanoid.Animator
 
-local startPos = Vector3.new(attach2.Parent.Position.X, script.Parent.Position.Y, attach2.Parent.Position.Z)
-local endPos = Vector3.new(attach1.Parent.Position.X, script.Parent.Position.Y, attach1.Parent.Position.Z)
+-- Sets up the animation holder table
+main.CreatedAnimations = {}
 
-local timeToStartPos = (script.Parent.Position-startPos).Magnitude/studsPerSecond
-local timeToEndPos = (script.Parent.Position-endPos).Magnitude/studsPerSecond
+-- Pre-defines some variables to store animations in
+main.CreatedAnimations.WalkAnimation = nil
+main.CreatedAnimations.RunAnimation = nil
+main.CreatedAnimations.JumpAnimation = nil
+main.CreatedAnimations.IdleAnimation = nil
+main.CreatedAnimations.ClimbAnimation = nil
 
-local startInfo = TweenInfo.new(timeToStartPos, Enum.EasingStyle.Linear)
-local endInfo = TweenInfo.new(timeToEndPos, Enum.EasingStyle.Linear)
+-- Sets up the animation setting table
+main.AnimationSettings = {}
 
-function First()
-	firstTween = {}
-	table.insert(firstTween, tweenService:Create(script.Parent, endInfo, {Position = endPos}))
-	local function loop(x : Part | Model)
-		for i, v : Part|Model in pairs(x) do
-			if v.ClassName == "Model" then
-				loop(v:GetChildren())
-			elseif v.ClassName == "Part" then
-				local distance = v.CFrame.Position-script.Parent.Position
-				table.insert(firstTween, tweenService:Create(v, endInfo, {Position = endPos + distance}))
-			end
-		end
-	end
-	loop(script.Parent.Parent.Attached:GetChildren())
-	link.Attachment1 = attach2
-end
+-- Variables used for animation settings
+main.AnimationSettings.IDPrefix = "rbxassetid://"
 
-function Second()
-	secondTween = {}
-	table.insert(secondTween, tweenService:Create(script.Parent, startInfo, {Position = startPos}))
-	local function loop(x : Part | Model)
-		for i, v : Part|Model in pairs(x) do
-			if v.ClassName == "Model" then
-				loop(v:GetChildren())
-			elseif v.ClassName == "Part" then
-				local distance = v.CFrame.Position-script.Parent.Position
-				table.insert(secondTween, tweenService:Create(v, startInfo, {Position = startPos + distance}))
-			end
-		end
-	end
-	loop(script.Parent.Parent.Attached:GetChildren())
-	link.Attachment1 = attach1
-end
+-- Sets up the AnimationID table used to create the animations
+main.AnimationSettings.AnimationIDs = {}
 
-function Remove()
-	touched = false
-	cooldown = 1
-	
-	script.Parent.Active.Value = false
-	
-	while cooldown > 0 do
-		cooldown -= 0.1
-		task.wait(0.1)
-	end
-end
+-- Defines the various AnimationIDs used for animations (index is the same index in main.CreatedAnimations), VALUES MUST BE THE INTEGER OF THE WEB URL
+main.AnimationSettings.AnimationIDs.WalkAnimation = 658831143
+main.AnimationSettings.AnimationIDs.RunAnimation = 658830056
+main.AnimationSettings.AnimationIDs.JumpAnimation = 658832070
+main.AnimationSettings.AnimationIDs.IdleAnimation = 658832408
+main.AnimationSettings.AnimationIDs.ClimbAnimation = 658833139
 
-script.Parent.Parent.Attached.Start.Touch.Event:Connect(function()
-	if cooldown > 0 then
-		return
-	end
-	
-	touched = true
-end)
-
-while task.wait() do
-	while touched == false do
-		task.wait()
-	end
-	
-	First()
-	script.Parent.Active.Value = true
-	
-	for i, v : Tween in pairs(firstTween) do
-		v:Play()
-	end
-	task.wait(timeToEndPos)
-	
-	Remove()
-	
-	while touched == false do
-		task.wait()
-	end
-	
-	Second()
-	script.Parent.Active.Value = true
-	
-	for i, v : Tween in pairs(secondTween) do
-		v:Play()
-	end
-	task.wait(timeToStartPos)
-	
-	Remove()
-end
