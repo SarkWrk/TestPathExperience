@@ -6,3 +6,4 @@
 - ShootingScript has 1 attribute:
  - CanSeeEnemy - If the rig can currently see an enemy (currently ShootingScript is empty)
 - StateViewer has no impact on the functionality of the core scripts. It is there to help visualise what is happening without looking at the attributes.
+- Changed main.PathfindingInformation.BillboardTextLabel to VisualisationInformation.BillboardTextLabel.
