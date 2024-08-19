@@ -82,7 +82,7 @@ listeners.PathfindingScript = {}
 
 
 
--- Litens for PathfindingScript:GetAttributeChangedSignal("InCycle"), and changes the main.IsIdled value to the inverse of it
+-- Listens for PathfindingScript:GetAttributeChangedSignal("InCycle"), and changes the main.IsIdled value to the inverse of it
 function listeners.PathfindingScript:InCycle() : nil
 	if pathfindingScript:GetAttribute("InCycle") == true then
 		main.IsIdled = false
