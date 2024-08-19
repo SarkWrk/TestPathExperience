@@ -2,6 +2,9 @@
 - StateViwer has new functionality, and changes to 1 part of it's code:
  - It will now show if the rig can see an enemy.
  - It will now differentiate between running and walking.
+- ShootingScript now has code:
+ - main:UpdateEnemyTable() will update the enemy table
+ - main.RunService.Heartbeat will check if the rig can see the enemy
 
 # 1
 - PathfindingScript has 3 new attributes:
