@@ -1,5 +1,5 @@
--- The parent of the script
-local rig = script.Parent.Parent
+local rig = script.Parent.Parent -- The parent of the script
+local shootingScript = script.Parent.ShootiingScript -- The script used for shooting
 
 
 
@@ -38,7 +38,7 @@ main.PathfindingInformation.JumpHeight = 50 -- Uses Humanoid.JumpPower
 main.PathfindingInformation.MoveSpeed = 16 -- In studs/sec
 
 -- Variable used to help show what goal the rig is currently pathing to
-main.PathfindingInformation.BillboardTExtLabel = script.Parent.BillboardGui.TextLabel
+main.PathfindingInformation.BillboardTExtLabel = rig.BillboardGui.TextLabel
 
 -- Table used for controlling if the rig should recalculate the path due to it being blocked by a ancestor of an object in the table
 main.PathfindingInformation.BannedFolders = {workspace.Obstacles}
@@ -80,6 +80,18 @@ VisualisationInformation.VisualiseChoosing = false -- Whether to enable this vis
 VisualisationInformation.ShowChoosingCircle = true -- Whether to show the distance circle
 VisualisationInformation.ChoosingCircleExpansionDelay = 0.0005 -- How long the programme waits between expanding the circle
 VisualisationInformation.HighlightAppearenceWaitTime = 1 -- How long the programme waits after reaching the chosen goal
+
+
+
+-- Sets up a table to store shootingScript functionality
+ShootingFunctions = {}
+
+
+
+-- Sets up some variables used for the functions in the table
+ShootingFunctions.CanSeeEnemy = false -- Used in ShootingFunctions:Halt()
+
+
 
 -- Function used to visualise the path the rig takes to get to a goal
 function VisualisationInformation:PathVisualiser(waypoints : table) : nil -- Returns nothing, requires the waypoints that are going to be plotted (as a table)
@@ -144,7 +156,8 @@ function VisualisationInformation:PathVisualiser(waypoints : table) : nil -- Ret
 		waypoint.Material = Enum.Material.Neon -- Sets the material of the node to glow
 		waypoint.Position = v.Position -- Sets the position of the node to the waypoint position
 		waypoint.CanCollide = false -- Sets the ability to collide with the node to false
-		waypoint.Anchored = true -- Sets the anchored attribute of the node to true
+		waypoint.Anchored = true -- Sets the anchored property of the node to true
+		waypoint.Locked = true -- Sets the locked property of the node to true
 		waypoint.Parent = foundFolder -- Parents the node to the folder
 	end
 end
@@ -174,7 +187,9 @@ function VisualisationInformation:ChoosenVisualiser(chosenPart : Part) : void
 		circle.Color = Color3.new(1, 1, 0.498039) -- Changes the colour to a light yellow
 		circle.Anchored = true -- Sets the anchored property to true
 		circle.CanCollide = false -- Sets the CanCollide property to false
-		circle.Parent = rig -- Parents the circle to the rig
+		circle.Locked = true -- Makes the circle unable to be selected in studio
+		circle.Transparency = 0.5 -- Makes the circle half transparent
+		circle.Parent = workspace -- Parents the circle to the workspace
 
 		-- Variables used in the following while loop, read more:
 		local incrementer = 0 -- Used to facilitate the expansion of the circle
@@ -187,7 +202,7 @@ function VisualisationInformation:ChoosenVisualiser(chosenPart : Part) : void
 			
 			-- Loops through each goal to check whether it's in the circle, and if so then highlights it
 			for i, v : Part in pairs(workspace.Goals:GetChildren()) do
-				local distance = (Vector3.new(script.Parent.LowerTorso.Position.X, script.Parent.LeftFoot.Position.Y, 
+				local distance = (Vector3.new(rig.LowerTorso.Position.X, rig.LeftFoot.Position.Y, 
 					rig.LowerTorso.Position.Z) - v.Position).Magnitude -- Calculates the how far the goal is from the circle centre
 				
 				if distance <= circle.Size.Y/2 then -- Checks if the goal is inside the circle's covered area
@@ -252,6 +267,8 @@ function VisualisationInformation:ChoosenVisualiser(chosenPart : Part) : void
 	it correctly]]
 	connector.CanCollide = false -- Sets the CanCollide property to false
 	connector.Anchored = true -- Sets the Anchored property to true
+	connector.Locked = true -- Sets the part to be unselectable
+	connector.Transparency = 0.5 -- Sets the part's transparency to half
 	connector.Parent = workspace -- Parents it to the workspace
 	
 	task.wait(VisualisationInformation.HighlightAppearenceWaitTime) -- Halts the programme for an amount of time
@@ -261,6 +278,20 @@ function VisualisationInformation:ChoosenVisualiser(chosenPart : Part) : void
 		v:Destroy()
 	end
 	connector:Destroy()
+end
+
+-- Sets up a listener to set the ShootingFunctions.CanSeeEnemy variable
+shootingScript:GetAttributeChangedSignal("CanSeeEnemy"):Connect(function()
+	ShootingFunctions.CanSeeEnemy = shootingScript:GetAttribute("CanSeeEnemy")
+end)
+
+-- Function used to halt the programme due to the shootingScript
+function ShootingFunctions:Halt() : nil
+	if ShootingFunctions.CanSeeEnemy == true then
+		while ShootingFunctions.CanSeeEnemy == true do
+			task.wait()
+		end
+	end
 end
 
 -- Function used by the programme to calculate and return a chosen goal
@@ -478,10 +509,14 @@ function main.CustomActionHelpers:MovingPlatform(position) : boolean -- Requires
 					task.wait()
 				end
 				
+				script:SetAttribute("OnMovingPlatform", true) -- Publicses that the rig is on a moving platform
+				
 				while moverPlatformActive.Value == true do -- Waits until the platform deactivates
 					main.Humanoid:MoveTo(moverStartEvent.Parent.Position)
 					task.wait()
 				end
+				
+				script:SetAttribute("OnMovingPlatform", false) -- Publicses that the rig is not on a moving platform
 				
 				return true -- Returns true when the platform deactivates
 			else -- If the "Active" BoolValue and/or "Touch" BindableEvent aren't found, warns useful information for debugging 
@@ -606,6 +641,8 @@ function main:MoveThroughWaypoints() : nil
 	
 	-- Loops through each waypoint, moving to each waypoint and doing a specific action for each, breaks out if the path is blocked
 	for i, v in pairs(waypoints) do
+		ShootingFunctions:Halt() -- Halts the programme if the rig is able to see an enemy
+		
 		while main.Moving == true do -- Halts the programme until the rig has stopped moving
 			task.wait()
 		end
