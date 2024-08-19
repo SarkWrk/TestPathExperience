@@ -1,0 +1,9 @@
+# 1
+- PathfindingScript has 3 new attributes:
+ - InCycle - If the PathfindingScript is currently going to a goal.
+ - Moving - If the PathfindingScript is currently making the rig move.
+ - OnMovingPlatform - If the PathfindingScript is currently on a moving platform.
+- ShootingScript has 1 attribute:
+ - CanSeeEnemy - If the rig can currently see an enemy (currently ShootingScript is empty)
+- StateViewer has no impact on the functionality of the core scripts. It is there to help visualise what is happening without looking at the attributes.
+- Changed main.PathfindingInformation.BillboardTextLabel to VisualisationInformation.BillboardTextLabel.
