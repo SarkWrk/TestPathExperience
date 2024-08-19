@@ -37,9 +37,6 @@ main.PathfindingInformation.LabelCosts = {Danger = math.huge} --[[Material names
 main.PathfindingInformation.JumpHeight = 50 -- Uses Humanoid.JumpPower
 main.PathfindingInformation.MoveSpeed = 16 -- In studs/sec
 
--- Variable used to help show what goal the rig is currently pathing to
-main.PathfindingInformation.BillboardTExtLabel = rig.BillboardGui.TextLabel
-
 -- Table used for controlling if the rig should recalculate the path due to it being blocked by a ancestor of an object in the table
 main.PathfindingInformation.BannedFolders = {workspace.Obstacles}
 
@@ -66,6 +63,9 @@ main.CustomActionHelpers = {}
 
 -- A table to contain extra variables and functions related to visualising the main programme
 VisualisationInformation = {}
+
+-- Variable used to help show what goal the rig is currently pathing to
+VisualisationInformation.BillboardTextLabel = rig.BillboardGui.TextLabel or nil -- Attemps to find a BillboardGUI parented to rig to display info on
 
 -- Variables used for the VisualisationInformation:PathVisualiser() function
 VisualisationInformation.VisualisePath = true -- Whether to enable this visualisation
@@ -637,7 +637,9 @@ function main:MoveThroughWaypoints() : nil
 		VisualisationInformation:PathVisualiser(waypoints)
 	end
 	
-	main.PathfindingInformation.BillboardTExtLabel.Text = "Target: " .. main.Goal.Name -- Changes the main.PathfindingInformation.BillboardTExtLabel text to the current goal 
+	if VisualisationInformation.BillboardTextLabel ~= nil then -- Nil check on VisualisationInformation.BillboardTextLabel
+		VisualisationInformation.BillboardTextLabel.Text = "Target: " .. main.Goal.Name -- Changes the VisualisationInformation.BillboardTextLabel text to the current goal 
+	end
 	
 	-- Loops through each waypoint, moving to each waypoint and doing a specific action for each, breaks out if the path is blocked
 	for i, v in pairs(waypoints) do
