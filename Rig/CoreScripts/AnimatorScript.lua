@@ -96,7 +96,7 @@ function listeners.PathfindingScript:Moving() : nil
 	main.IsMoving = pathfindingScript:GetAttribute("Moving")
 end
 
--- Litens for PathfindingScript:GetAttributeChangedSignal("OnMovingPlatform"), and if set to true stops WalkAnimation and RunAnimation
+-- Listens for PathfindingScript:GetAttributeChangedSignal("OnMovingPlatform"), and if set to true stops WalkAnimation and RunAnimation
 function listeners.PathfindingScript:OnMovingPlatform() : nil
 	if pathfindingScript:GetAttribute("OnMovingPlatform") == true then
 		main:StopMovingAnimations()
