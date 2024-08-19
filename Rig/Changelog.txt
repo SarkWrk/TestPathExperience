@@ -1,3 +1,8 @@
+# 2
+- StateViwer has new functionality, and changes to 1 part of it's code:
+ - It will now show if the rig can see an enemy.
+ - It will now differentiate between running and walking.
+
 # 1
 - PathfindingScript has 3 new attributes:
  - InCycle - If the PathfindingScript is currently going to a goal.
