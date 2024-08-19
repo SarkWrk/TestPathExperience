@@ -1,6 +1,6 @@
 local rig = script.Parent.Parent
 local pathfindScript = script.Parent.PathfindingScript
-local shootingScript = script.Parent.ShootiingScript
+local shootingScript = script.Parent.ShootingScript
 local animatorScript = script.Parent.AnimatorScript
 
 local highlight = Instance.new("Highlight")
