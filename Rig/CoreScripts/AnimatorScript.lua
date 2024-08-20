@@ -91,7 +91,7 @@ function listeners.PathfindingScript:InCycle() : nil
 	end
 end
 
--- Listens for PathfindingScript:GetAttributeChangedSignal("Moving"), and changes the main.IsIdled value to it
+-- Litens for PathfindingScript:GetAttributeChangedSignal("Moving"), and changes the main.IsIdled value to it
 function listeners.PathfindingScript:Moving() : nil
 	main.IsMoving = pathfindingScript:GetAttribute("Moving")
 end

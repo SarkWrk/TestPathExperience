@@ -1,5 +1,5 @@
 local rig = script.Parent.Parent -- The parent of the script
-local shootingScript = script.Parent.ShootiingScript -- The script used for shooting
+local shootingScript = script.Parent.ShootingScript -- The script used for shooting
 
 
 
