@@ -5,9 +5,11 @@
 - ShootingScript now has code:
   - main:UpdateEnemyTable() will update the enemy table
   - main.RunService.Heartbeat will check if the rig can see the enemy
-    - Includes a radius FOV and distance check via main.Configurations.ViewRadius and main.Configurations.ViewDistance respectively \([#2](https://github.com/SarkWrk/TestPathExperience/issues/2)\)
-- New function main:SetUpAttributeConfigurations() which adds writable attributes to ShootingScript
-  - Added subfunction :listenToAttribute() which listens for the writable attributes and adjusts the main.Configurations<index> accordingly
+    - Includes a radius FOV and distance check via main.Configurations.ViewRadius and main.Configurations.ViewDistance respectively ([#2](https://github.com/SarkWrk/TestPathExperience/issues/2))
+  - New function main:SetUpAttributeConfigurations() which adds writable attributes to ShootingScript ([#3](https://github.com/SarkWrk/TestPathExperience/issues/3))
+    - Added subfunction :listenToAttribute() which listens for the writable attributes and adjusts the main.Configurations<index> accordingly
+  - New script.ChangeEnemyTable event ([#3](https://github.com/SarkWrk/TestPathExperience/issues/3))
+    - Adds a function that allows the changing of values inside main.Configurations.EnemyFolders
 
 # 1
 - PathfindingScript has 3 new attributes:
