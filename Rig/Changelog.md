@@ -10,6 +10,8 @@
     - Added subfunction :listenToAttribute() which listens for the writable attributes and adjusts the main.Configurations<index> accordingly
   - New script.ChangeEnemyTable event ([#3](https://github.com/SarkWrk/TestPathExperience/issues/3))
     - Adds a function that allows the changing of values inside main.Configurations.EnemyFolders
+  - New script.ChangeIgnoreViewTable event ([#3](https://github.com/SarkWrk/TestPathExperience/issues/3))
+    - Adds a function that allows the changing of values inside main.Configurations.RaycastParams.IgnoreInViewChecking
 
 # 1
 - PathfindingScript has 3 new attributes:
