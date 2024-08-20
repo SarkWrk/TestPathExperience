@@ -277,6 +277,64 @@ if main.Configurations.AllowAdjustableSettings == true then
 			end
 		end
 	end)
+	
+	--[[
+	Adds functionality to change main.Configurations.RaycastParams.IgnoreInViewChecking
+	Accepts overloads:
+	option : boolean → true: add a value to main.Configurations.RaycastParams.IgnoreInViewChecking, false: remove a value from main.Configurations.RaycastParams.IgnoreInViewChecking
+	value : Instance | table → Instance: Adds the instance directly to the folder, table will attempt to find the instance through the workspace hierarchy
+	using strings for names. If not every value is a string, the entire search will be thrown out. Any issues with this proccess will throw a warning.
+	]]
+	script.ChangeIgnoreViewTable.Event:Connect(function(option : boolean, value : Folder | table)
+		local toBeChangedFolder : Folder
+		if typeof(value) == "Instance" then
+			toBeChangedFolder = value
+		elseif typeof(value) == "table" then
+			local tempFolder : Instance = nil
+			for i, v in pairs(value) do
+				if type(v) ~= "string" then
+					warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event recieved overload 'value' with a non-string value inside the table.")
+					tempFolder = nil
+					break
+				end
+
+				if i == 1 then
+					tempFolder = workspace:FindFirstChild(v)
+				else
+					tempFolder = tempFolder:FindFirstChild(v)
+				end
+				if tempFolder == nil then
+					warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event tried to find a Folder with name: " .. v .. ". However, it could not be found.")
+					break
+				end
+			end
+
+			toBeChangedFolder = tempFolder
+		else
+			warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event recieved an unusable 'value' overload. Recieved value: ", value, " (with type: " .. typeof(value) .. ").")
+		end
+
+		-- Do nothing if toBeAddedFolder is nil
+		if toBeChangedFolder == nil then
+			return
+		end
+
+		--[[
+		If 'option' is true, add the folder to main.Configurations.RaycastParams.IgnoreInViewChecking
+		, otherwise try to remove the value. Will throw a warning if the value cannot be found inside the table.
+		]]
+		if option == true then
+			table.insert(main.Configurations.RaycastParams.IgnoreInViewChecking, toBeChangedFolder)
+		elseif option == false then
+			local index = table.find(main.Configurations.RaycastParams.IgnoreInViewChecking, toBeChangedFolder) -- Tries to find the index the folder is at
+
+			if index then -- Remove the folder at the index
+				table.remove(main.Configurations.RaycastParams.IgnoreInViewChecking, index)
+			else -- If the flolder was not found, throw an warning
+				warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event could not find folder '" .. toBeChangedFolder:GetFullName() .. "' inside main.Configurations.RaycastParams.IgnoreInViewChecking.")
+			end
+		end
+	end)
 end
 
 --[[
