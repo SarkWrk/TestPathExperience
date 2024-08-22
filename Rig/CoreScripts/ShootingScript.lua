@@ -11,6 +11,9 @@ main.LastCheckedEnemyPositions = 0 -- Used for main.Configurations.VisualCheckDe
 main.LastUpdatedEnemyTable = 0 -- Used for main.Configurations.EnemyTableUpdateDelay
 main.CanSeeEnemy = false -- If the rig can see an enemy
 main.StopViewChecking = false -- Whether the programme should stop checking if the rig can see an enemy. THIS SHOULD ONLY BE USED IN EMERGENCIES.
+main.RandomNumberGenerator = Random.new()
+main.LastShot = 0 -- Used to store the time that the rig last shot a bullet
+main.Died = false
 
 
 
@@ -41,7 +44,39 @@ Information on how to add/remove folders will be in the listener event function.
 
 
 
--- Table to stoer configurations for the RaycastParams for the viewcheck raycast
+-- Table used to store configuations for CombatInformation
+main.Configurations.WeaponsConfigurations = {}
+
+-- Predefined variables used for weapons
+main.Configurations.WeaponsConfigurations.MeleeAvailable = false -- Whether the script will allow meleeing
+main.Configurations.WeaponsConfigurations.GunAvailable = true -- Whether the script will allow shooting
+main.Configurations.WeaponsConfigurations.NewTargetChance = 5 -- Chance to target a new target if the previous target is still visible
+main.Configurations.WeaponsConfigurations.ShootFromLocation = rig.Head -- The part which shooting functions use to shoot from
+
+
+
+-- Table to store all the score multipliers for targetting with a gun
+main.Configurations.WeaponsConfigurations.GunScoreMultipliers = {}
+
+-- The score multipliers
+main.Configurations.WeaponsConfigurations.GunScoreMultipliers.DistanceScoreMultiplier = 1 -- How much to multiply the distance the target is by x
+main.Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier = 2 -- How much to multiply the health of the target by x
+main.Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier = 3  -- How much to multiply the threat level of the target by x
+
+
+
+-- Sets up a table that stores the parameters for a RaycastParams.new() used in the "Raycast" bullet type
+main.Configurations.WeaponsConfigurations.ShootingRaycastParams = {}
+
+-- Defines the variables
+main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType = "Exclude"
+main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of instances to get filtered in/out by the raycast
+	game.Workspace.Rig,
+}
+
+
+
+-- Table to store configurations for the RaycastParams for the viewcheck raycast
 main.Configurations.RaycastParams = {}
 
 -- Predefined variables inside main.Configurations.RaycastParams
@@ -52,7 +87,7 @@ Table used to store folders or parts that the rig should ignore when checking if
 Can be added and removed from via script.ChangeIgnoreViewTable if main.Configurations.AllowAdjustableSettings is set to true.
 Information on how to add/remove parts will be in the listener event function.
 ]]
-	game.Workspace.Rig,	
+	game.Workspace.Rig,
 }
 
 
@@ -72,6 +107,32 @@ main.Configurations.Attributes = {
 	"ViewDistance",
 	"RaycastParams/FilterType",
 	"ViewRadius",
+	"WeaponsConfigurations/GunAvailable",
+}
+
+
+
+-- Sets up the CombatInformation table to store information used for combat
+CombatInformation = {}
+
+-- Sets up some general housekeeping of variables for the script
+CombatInformation.Target = {Favoured = nil, Total = {}} --[[ The favoured value is the previous target shot at, and is much more likely to be chosen.
+The total value is filled with nested tables with information about enemies that can be seen.]]
+CombatInformation.GunStatistics = { -- Table referenced when shooting
+	Damage = 10, -- In HP
+	ShotDelay = 0.1, -- In seconds
+	AmountOfShots = 1, -- In bullets
+	ShotsPerBurst = 1, -- In amount of bullets per shot
+	DelayBetweenBurst = nil, -- Leave nil if not in burst
+	Range = 150, -- In studs
+	BulletDrop = 0, -- In studs per second, only used when TypeOfBullet type is NOT 1
+	TypeOfBullet = 1, -- 1 : Raycast, 2 : Part
+	XSpread = 5, -- In degrees, +/-x
+	YSpread = 5, -- In degrees, +/-y
+	BulletSpeed = 100, -- Only used if TypeOfBullet is NOT 1
+	ReloadSpeed = 1, -- In seconds
+	MagazineSize = 10, -- Bullets per magazine
+	ReserveSize = 100, -- Total bullets that can be shot
 }
 
 
@@ -79,10 +140,15 @@ main.Configurations.Attributes = {
 -- Sets up a table to store information that is used in visualisations
 VisualisationInformation = {}
 
+-- Pre-defined variables used for visualising certain information
+VisualisationInformation.VisualiseShooting = true -- Whether to show the raycast when shooting if the raycast hits anything
+VisualisationInformation.VisualisationFolderName = "ShootingVisualiser" .. main.RandomNumberGenerator:NextNumber(1, 10000000000)
+VisualisationInformation.VisualisationFolder = nil
+
 
 
 -- Listens for main.RunService.Heartbeat() before checking if the rig can see an enemy. If the rig can see an enemy then the CanSeeEnemy attribute is set to true, otherwise false.
-main.RunService.Heartbeat:Connect(function() : nil
+main.EnemySightCheck = main.RunService.Heartbeat:Connect(function() : nil
 	-- Checks if main.StopViewChecking is set to true. If it is, it returns
 	if main.StopViewChecking == true then
 		return
@@ -95,13 +161,9 @@ main.RunService.Heartbeat:Connect(function() : nil
 	
 	if tick()-main.LastCheckedEnemyPositions >= main.Configurations.VisualCheckDelay then
 		local hasSeenEnemy = false -- Tracks to see if the rig has seen an enemy
+		CombatInformation.Target.Total = {} -- Reset the CombatInformation.Target.Total table
 		
 		for _, enemy : Part | Model in pairs(main.EnemyTable) do
-			-- If the rig has seen an enemy, don't continue the for loop.
-			if hasSeenEnemy == true then
-				break
-			end
-			
 			local endPart : Part
 			
 			-- Gets the part to raycast to via Model.PrimaryPart, or the part itself. If there is no part, then returns
@@ -110,7 +172,7 @@ main.RunService.Heartbeat:Connect(function() : nil
 			elseif enemy.ClassName == "Part" then
 				endPart = enemy
 			else
-				return
+				continue
 			end
 			
 			-- Gets the part on the rig to raycast from
@@ -135,23 +197,42 @@ main.RunService.Heartbeat:Connect(function() : nil
 			local _, endYOrientation, _ = newView:ToOrientation()
 			
 			if math.abs(math.deg(startYOrientation) - math.deg(endYOrientation)) <= main.Configurations.ViewRadius then
-				return
+				continue
 			end
 
 			-- Sets up the RaycastParams for the raycast
 			local rayCastParams = RaycastParams.new()
 			rayCastParams.FilterType = Enum.RaycastFilterType[main.Configurations.RaycastParams.FilterType]
 			rayCastParams.RespectCanCollide = main.Configurations.RaycastParams.RespectCanCollide
-			rayCastParams.FilterDescendantsInstances = main.Configurations.RaycastParams.IgnoreInViewChecking
+			rayCastParams.FilterDescendantsInstances = {main.Configurations.RaycastParams.IgnoreInViewChecking, VisualisationInformation.VisualisationFolder}
 			
 			-- At this point, the programme has identified the end part and the start part to raycast to
 			local raycast = game.Workspace:Raycast(startPart.Position, viewDirection, rayCastParams)
 			
-			-- TODO: Add radius checking to see if the rig can physically be able to see the enemy using main.Configurations.ViewRadius
-			
 			if raycast then
 				if raycast.Instance then
 					if raycast.Instance:IsDescendantOf(enemy) or raycast.Instance == enemy then
+						-- Code to store information about the enemy
+						local storedInformation = {
+							Distance = math.huge, -- The distance the enemy is from the rig
+							Enemy = endPart, -- Part used for targetting
+							ThreatLevel = 1, -- The TreatLevel of the enemy
+							Health = 100 -- The health of the enemy, defaults to 100
+						}
+						
+						storedInformation.Distance = (startPart.Position-endPart.Position).Magnitude
+						local enemyHumanoid : Humanoid = enemy:FindFirstChild("Humanoid")
+						if enemyHumanoid then
+							storedInformation.Health = enemyHumanoid.Health
+							
+							-- Checks if the enemy is alive, and if not the programme does not count the enemy as "alive"
+							if storedInformation.Health <= 0 then
+								continue
+							end
+						end
+						
+						table.insert(CombatInformation.Target.Total, storedInformation) -- Adds the endPart to the target list for shooting
+						
 						hasSeenEnemy = true
 					end
 				end
@@ -163,6 +244,52 @@ main.RunService.Heartbeat:Connect(function() : nil
 		main.CanSeeEnemy = hasSeenEnemy
 	end
 end)
+
+-- Listens for when RigDied fires, and then proceeds to safely halt the programme
+script.Parent.RigDied.Event:Connect(function()
+	main.Died = true
+	main.StopViewChecking = true
+end)
+
+--[[
+Function used to visualise the shot of a gun if the bullet type is set to "Raycast"
+Accepts overloads:
+distance : number → The distance of the raycast
+startPosition : Vector3 → Where to start the beam from
+endPosition : Vector3 → Where the raycast hit
+]]
+function VisualisationInformation:VisualiseShootingRaycast(distance : number, startPosition : Vector3, endPosition : Vector3) : nil
+	-- Tries to find if a folder to store all the paths has already been made. If it hasn't, then it creates the folder
+	local foundFolder = VisualisationInformation.VisualisationFolder
+	if foundFolder then
+		foundFolder:ClearAllChildren() -- Clears all previous nodes in the folder
+	else
+		-- Creates a new folder with the name "PathVisualiser" and parents it to the workspace
+		foundFolder = Instance.new("Folder")
+		foundFolder.Name = VisualisationInformation.VisualisationFolderName
+		foundFolder.Parent = workspace
+		VisualisationInformation.VisualisationFolder = foundFolder
+	end
+	
+	local midPoint = Vector3.new((startPosition.X + endPosition.X)/2, (startPosition.Y + endPosition.Y)/2, (startPosition.Z + endPosition.Z)/2) -- Gets the midpoint to place the beam
+
+	-- Creates the beam
+	local beam = Instance.new("Part")
+	beam.Size = Vector3.new(distance, 0.3, 0.3)
+	beam.Shape = Enum.PartType.Cylinder
+	beam.CanCollide = false
+	beam.CFrame = CFrame.lookAt(midPoint, startPosition) * CFrame.Angles(0, math.rad(90), 0)
+	beam.Anchored = true
+	beam.Color = Color3.new(1, 1, 0.498039)
+	beam.Material = "Neon"
+	beam.Transparency = 0.5
+	beam.Locked = true
+	beam.Parent = foundFolder
+	
+	task.wait(CombatInformation.GunStatistics.ShotDelay)
+	
+	beam:Destroy()
+end
 
 --[[
 This if statement contains code that is only ran IF main.Configurations.AllowAdjustableSettings is set to true
@@ -372,11 +499,227 @@ function main:UpdateEnemyTable() : boolean
 	return false
 end
 
+--[[
+Gets the score of an enemy, used to decide on a target.
+Accepts overloads:
+information : table → The table in CombatInformation.Target.Total<index>
+weaponType : number → 1 = gun, 2 = melee
+]]
+function main:GetTargetScore(information : table, weaponType : number) : number
+	local toBeAddedScores = {}
+	local score = 0
+	
+	-- If the weapon is a gun
+	if weaponType == 1 then
+		-- List of all the scores
+		toBeAddedScores.HealthScore = information.Health * main.Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier
+		toBeAddedScores.ThreatLevelScore = information.ThreatLevel * main.Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier
+		
+		-- Checks if the enemy is within targetting distance, and if not sets the distance multiplier to math.huge
+		if information.Distance > CombatInformation.GunStatistics.Range then
+			toBeAddedScores.DistanceScore = math.huge
+		else
+			toBeAddedScores.DistanceScore = information.Distance * main.Configurations.WeaponsConfigurations.GunScoreMultipliers.DistanceScoreMultiplier
+		end
+	-- If the weapon is a melee
+	elseif weaponType == 2 then
+		-- pass
+	end
+	
+	-- Adds up all the scores
+	for i, v in pairs(toBeAddedScores) do
+		score += v
+	end
+	
+	return score
+end
+
+--[[
+Identifies a target and returns a part to target
+Accepts overloads:
+weaponType : number → 1 = gun, 2 = melee
+]]
+function main:IdentifyTarget(weaponType : number) : Part
+	--[[ Checks if there's already a target, and if there is then has a chance to return it instead of identifying a new target 
+												     if it's in CombatInformation.Target.Total and within targetting distance]]
+	if CombatInformation.Target.Favoured ~= nil then
+		local foundTarget = false
+		-- Tries to find the target in CombatInformation.Target.Total
+		for i, v in pairs(CombatInformation.Target.Total) do
+			if v.Enemy == CombatInformation.Target.Favoured then
+				if weaponType == 1 then
+					if v.Distance > CombatInformation.GunStatistics.Range then
+						break
+					end
+				end
+				
+				foundTarget = true
+				break
+			end
+		end
+		
+		-- Randomly chooses if the target will be the favoured target if the target was found
+		if foundTarget == true then
+			local selected = main.RandomNumberGenerator:NextNumber(1, main.Configurations.WeaponsConfigurations.NewTargetChance)
+			
+			if selected <= main.Configurations.WeaponsConfigurations.NewTargetChance then
+				-- Will select a new target
+			else -- Selects the old target
+				return CombatInformation.Target.Favoured
+			end
+		end
+	end
+	
+	local targetScores = {}
+	
+	-- Collects all the scores of all the enemies in CombatInformation.Target.Total
+	for i, v in pairs(CombatInformation.Target.Total) do
+		table.insert(targetScores, {Target = v.Enemy, Score = main:GetTargetScore(v, weaponType)})
+	end
+	
+	-- Randomizes the table, just in case there are enemies that have the same score
+	main.RandomNumberGenerator:Shuffle(targetScores)
+	
+	local placesTable = {
+		[1] = {enemy = nil, score = math.huge},
+		[2] = {enemy = nil, score = math.huge},
+		[3] = {enemy = nil, score = math.huge}
+	}
+	
+	-- Fills out the places table based on the scores
+	for i, v in pairs(targetScores) do
+		if v.Score < placesTable[1].score then
+			placesTable[1].enemy = v.Target
+			placesTable[1].score = v.Score
+		elseif v.Score < placesTable[2].score then
+			placesTable[2].enemy = v.Target
+			placesTable[2].score = v.Score
+		elseif v.Score < placesTable[3].score then
+			placesTable[3].enemy = v.Target
+			placesTable[3].score = v.Score
+		end
+	end
+	
+	local totalSlots = 0
+	
+	-- Gets the total number of places filled out
+	for i, v in pairs(placesTable) do
+		if v.enemy ~= nil then
+			totalSlots += 1
+		end
+	end
+	
+	-- Returns if there's no filled out places
+	if totalSlots == 0 then
+		return nil
+	end
+	
+	-- Selects a random target from the the total amount of places filled out
+	local randomlySelected = placesTable[main.RandomNumberGenerator:NextInteger(1, totalSlots)].enemy
+	
+	return randomlySelected
+end
+
+-- Creates a shot that is fired
+function main:FireGun() : nil
+	local target = main:IdentifyTarget(1) -- Gets a target
+
+	-- Nil checks the target to make sure there's a target selected
+	if target == nil then
+		return
+	end
+	
+	-- Checks if the time between shots is >= CombatInformation.GunStatistics.ShotDelay, and if not returns
+	if tick()-main.LastShot < CombatInformation.GunStatistics.ShotDelay then
+		return
+	end
+	main.LastShot = tick() -- Updates main.LastShot
+	
+	-- Identifies if the gun is a burst gun or not
+	local burstWeapon = false
+	if CombatInformation.GunStatistics.DelayBetweenBurst ~= nil then
+		burstWeapon = true
+	end
+	
+	-- Saves the headPosition of where the shooting happens
+	local startingPosition = main.Configurations.WeaponsConfigurations.ShootFromLocation.Position
+	
+	-- Creates a CFrame that looks at the target
+	local lookAtCFrame = CFrame.lookAt(startingPosition, target.Position)
+	
+	-- Factors spread into the lookAtCFrame
+	local adjustedCFrame = lookAtCFrame * CFrame.Angles(math.rad(main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.XSpread,
+		CombatInformation.GunStatistics.XSpread)), math.rad(main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.YSpread,
+			CombatInformation.GunStatistics.YSpread)), 0)
+	
+	-- Gets the adjustedCFrame.LookVector and multiplies it by CombatInformation.GunStatistics.Range to get the full distance of the shot
+	local maxDistance = adjustedCFrame.LookVector * CombatInformation.GunStatistics.Range
+	
+	local shootingRaycastParams = RaycastParams.new()
+	
+	-- Creates a raycast and if it hits anything, will attempt to find the humanoid of the hit object and damage it dealing CombatInformation.GunStatistics.Damage HP
+	if CombatInformation.GunStatistics.TypeOfBullet == 1 then
+		local hitRaycastParams = RaycastParams.new()
+		hitRaycastParams.FilterType = Enum.RaycastFilterType[main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType]
+		hitRaycastParams.FilterDescendantsInstances = {main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents, VisualisationInformation.VisualisationFolder}
+		hitRaycastParams.RespectCanCollide = false
+		
+		local rayCast = game.Workspace:Raycast(startingPosition, maxDistance)
+		if rayCast then
+			local hitPart = rayCast.Instance
+			if hitPart then
+				-- Visualises the bullet path if VisualisationInformation.VisualiseShooting is set to true
+				if VisualisationInformation.VisualiseShooting == true then
+					VisualisationInformation:VisualiseShootingRaycast(rayCast.Distance, startingPosition, hitPart.Position)
+				end
+				
+				local hitHumanoid : Humanoid = nil
+
+				-- Attempts to find the Humanoid of the hit part
+				hitHumanoid = hitPart:FindFirstChildOfClass("Humanoid")
+				if hitHumanoid == nil then
+					hitHumanoid = hitPart.Parent:FindFirstChildOfClass("Humanoid")
+				end
+				
+				-- If no Humanoid is found, return
+				if hitHumanoid == nil then
+					return
+				end
+				
+				-- Deals damage to the hit part
+				hitHumanoid:TakeDamage(CombatInformation.GunStatistics.Damage)
+			end
+		end
+	end
+end
+
+-- Function used to determine what method of fighting to use
+function main:CombatDecider() : nil
+	-- Melee will be added later, probably
+	main:FireGun()
+end
+
 -- Tries to run the code for main.Configuratons.AllowAdjustableSettings. We don't care if it fails.
 local ignore, ignored = pcall(function()
 	main:SetUpAttributeConfigurations()
 end)
 
+-- Update the enemy table
+main.UpdateEnemyTableListener = main.RunService.Heartbeat:Connect(main.UpdateEnemyTable)
+
 while task.wait() do
-	main:UpdateEnemyTable()
+	if main.Died == true then
+		break
+	end
+	main:CombatDecider()
 end
+
+-- Destroys the visualisation folder
+if VisualisationInformation.VisualisationFolder ~= nil then
+	VisualisationInformation.VisualisationFolder:Destroy()
+end
+
+main.UpdateEnemyTableListener:Disconnect()
+main.EnemySightCheck:Disconnect()
+
+script:SetAttribute("Shutoff", true) -- Publicises that the script is fully shut off and won't continue
