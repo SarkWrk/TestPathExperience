@@ -5,6 +5,7 @@
     - This update is backwards compatible with previous versions, and therefore can still pathfind to individual parts.
   - Parts created in VisualisationInformaiton:ChoosenVisualiser() are now parented to VisualisationInformation.FolderToSavePathVisualiserName as opposed to being parented to workspace.
     - This function now also checks if a folder was created to store visualised parts, and if not creates one.
+  - The created folder for visualisations is stored within a variable (still parented to the workspace), and now is only created if the variable storing the folder is nil.
 - New script: StateManager:
   - Currently contains code for telling other scripts to shutdown when the rig has died.
 - ShootingScript:
@@ -18,7 +19,8 @@
     - The programme now has functions for shooting using a raycast (actual bullets will be available as an option later).
     - On the side, a function for giving enemies a score based on certain factors (see the information stored during view checking) and a function for picking an enemy from those scores have been included.
       - The scoring system is fully customisable via main.Configurations.WeaponConfigurations<\[WeaponType]ScoreMultipliers>\<StoredInformationType>
-    - Currently ammo and magazine sizes are not factored into shooting and will be later.
+    - Currently ammo, magazine sizes, pellets, and burst rounds are not factored into shooting and will be later.
+    - The raycast has an aditional visualisation function that can be turned on. The created visualisation only lasts for as long as CombatInformation.GunStatistics.ShotDelay seconds.
   - Melee will be added at an indeterminable date.
 
   ## Known Issues:
