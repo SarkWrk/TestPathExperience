@@ -1,3 +1,33 @@
+# 3
+- All scripts now include code that will safely turn off all their functions and delete any created parts that are within their control.
+- PathfindingScript:
+  - Can now path to models if the .PrimaryPart property is set.
+    - This update is backwards compatible with previous versions, and therefore can still pathfind to individual parts.
+  - Parts created in VisualisationInformaiton:ChoosenVisualiser() are now parented to VisualisationInformation.FolderToSavePathVisualiserName as opposed to being parented to workspace.
+    - This function now also checks if a folder was created to store visualised parts, and if not creates one.
+  - The created folder for visualisations is stored within a variable (still parented to the workspace), and now is only created if the variable storing the folder is nil.
+- New script: StateManager:
+  - Currently contains code for telling other scripts to shutdown when the rig has died.
+- ShootingScript:
+  - View checking:
+    - Now has a saved RBXScriptSignal that can be disconnected (used for when the rig dies currently).
+    - Fixed a bad piece code that would return, therefore skiping parts of the code, instead of continuing when the enemy is outside of the rig's view radius.
+    - The code now stores information about enemies used later for when selecting a target.
+    - Now includes a health check (with a nil check) to make sure the enemy is alive before storing the information.
+      - If no Humanoid is found, the enemy is considered "alive". (May change in the future)
+  - Shooting:
+    - The programme now has functions for shooting using a raycast (actual bullets will be available as an option later).
+    - On the side, a function for giving enemies a score based on certain factors (see the information stored during view checking) and a function for picking an enemy from those scores have been included.
+      - The scoring system is fully customisable via main.Configurations.WeaponConfigurations<\[WeaponType]ScoreMultipliers>\<StoredInformationType>
+    - Currently ammo, magazine sizes, pellets, and burst rounds are not factored into shooting and will be later.
+    - The raycast has an aditional visualisation function that can be turned on. The created visualisation only lasts for as long as CombatInformation.GunStatistics.ShotDelay seconds.
+  - Melee will be added at an indeterminable date.
+
+  ## Known Issues:
+  - The spread factor of shooting is wildly out of proportions.
+
+<hr>
+
 # 2
 - StateViwer has new functionality, and changes to 1 part of it's code:
   - It will now show if the rig can see an enemy.
@@ -12,6 +42,8 @@
     - Adds a function that allows the changing of values inside main.Configurations.EnemyFolders
   - New script.ChangeIgnoreViewTable event ([#3](https://github.com/SarkWrk/TestPathExperience/issues/3))
     - Adds a function that allows the changing of values inside main.Configurations.RaycastParams.IgnoreInViewChecking
+
+<hr>
 
 # 1
 - PathfindingScript has 3 new attributes:

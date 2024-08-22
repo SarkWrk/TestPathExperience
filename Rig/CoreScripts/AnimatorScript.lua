@@ -17,6 +17,7 @@ main.IsRunning = false -- Tells the programme whether the rig is running or walk
 main.IsIdled = false -- Tells the programme whether the rig is idled or not
 main.Jumping = false -- Tells the programme if the rig is jumping
 main.IsMoving = false -- Tells the programme if the rig is moving
+main.Died = false
 
 
 
@@ -387,8 +388,17 @@ main.Humanoid.Jumping:Connect(listeners.RigEvents.Jumped)
 -- Sets up the Animations and AnimationTracks by calling main:CreateAnimations()
 main:CreateAnimations()
 
+-- Creates a listner that listens for when RigDied fires
+script.Parent.RigDied.Event:Connect(function()
+	main.Died = true
+end)
+
 -- Sets the running/walking animations when called.
 while task.wait() do
+	if main.Died == true then
+		break
+	end
+	
 	if main.IsIdled == false then
 		main:BasicMovementAnimation()
 	else
@@ -407,3 +417,5 @@ while task.wait() do
 		main.Jumping = false
 	end
 end
+
+script:SetAttribute("Shutoff", true)
