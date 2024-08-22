@@ -1,4 +1,5 @@
 # 3
+- All scripts now include code that will safely turn off all their functions and delete any created parts that are within their control.
 - PathfindingScript:
   - Can now path to models if the .PrimaryPart property is set.
     - This update is backwards compatible with previous versions, and therefore can still pathfind to individual parts.
