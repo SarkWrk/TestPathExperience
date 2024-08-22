@@ -1,3 +1,8 @@
+# 3
+- PathfindingScript:
+  - Can now path to models if the .PrimaryPart property is set.
+    - This update is backwards compatible with previous versions, and therefore can still pathfind to individual parts.
+
 # 2
 - StateViwer has new functionality, and changes to 1 part of it's code:
   - It will now show if the rig can see an enemy.
