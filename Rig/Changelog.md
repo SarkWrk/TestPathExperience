@@ -1,3 +1,9 @@
+# 4
+- PathfindingScript:
+  - Added health checking to the code that adds potential goals to the goal list so that only alive goals and goals without health will be picked from.
+
+<hr>
+
 # 3
 - All scripts now include code that will safely turn off all their functions and delete any created parts that are within their control.
 - PathfindingScript:
