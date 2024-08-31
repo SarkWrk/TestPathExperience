@@ -14,6 +14,9 @@ main.StopViewChecking = false -- Whether the programme should stop checking if t
 main.RandomNumberGenerator = Random.new()
 main.LastShot = 0 -- Used to store the time that the rig last shot a bullet
 main.Died = false
+main.OutOfAmmo = false -- Used to indicate to the script whether it's out of ammo or not
+main.NulledAdjustableSettings = true -- Used to indicate whether the adjustable settings attributes have been nilled out
+main.CreatedAdjustableSettings = false -- Used to indicate whether the adjustable settings were created
 
 
 
@@ -71,10 +74,8 @@ main.Configurations.WeaponsConfigurations.ShootingRaycastParams = {}
 -- Defines the variables
 main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType = "Exclude"
 main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of instances to get filtered in/out by the raycast
-	game.Workspace.Rig,
+	workspace.Rig,
 }
-
-
 
 -- Table to store configurations for the RaycastParams for the viewcheck raycast
 main.Configurations.RaycastParams = {}
@@ -108,7 +109,13 @@ main.Configurations.Attributes = {
 	"RaycastParams/FilterType",
 	"ViewRadius",
 	"WeaponsConfigurations/GunAvailable",
+	"AllowAdjustableSettings",
 }
+
+
+
+-- Sets up a table used for information cloned from CombatInformation.GunStatistics
+main.GunStatistics = {}	
 
 
 
@@ -120,8 +127,8 @@ CombatInformation.Target = {Favoured = nil, Total = {}} --[[ The favoured value 
 The total value is filled with nested tables with information about enemies that can be seen.]]
 CombatInformation.GunStatistics = { -- Table referenced when shooting
 	Damage = 10, -- In HP
-	ShotDelay = 0.1, -- In seconds
-	AmountOfShots = 1, -- In bullets
+	ShotDelay = 0.05, -- In seconds
+	AmountOfShots = 5, -- In bullets
 	ShotsPerBurst = 1, -- In amount of bullets per shot
 	DelayBetweenBurst = nil, -- Leave nil if not in burst
 	Range = 150, -- In studs
@@ -131,8 +138,8 @@ CombatInformation.GunStatistics = { -- Table referenced when shooting
 	YSpread = 5, -- In degrees, +/-y
 	BulletSpeed = 100, -- Only used if TypeOfBullet is NOT 1
 	ReloadSpeed = 1, -- In seconds
-	MagazineSize = 10, -- Bullets per magazine
-	ReserveSize = 100, -- Total bullets that can be shot
+	MagazineSize = 30, -- Bullets per magazine
+	ReserveSize = 10000, -- Total bullets that can be shot
 }
 
 
@@ -149,8 +156,14 @@ VisualisationInformation.VisualisationFolder = nil
 
 -- Listens for main.RunService.Heartbeat() before checking if the rig can see an enemy. If the rig can see an enemy then the CanSeeEnemy attribute is set to true, otherwise false.
 main.EnemySightCheck = main.RunService.Heartbeat:Connect(function() : nil
+	-- Checks if the rig is out of ammo, and if so will not stop the rig from pathfinding anymore because the rig can't shoot
+	if main.OutOfAmmo == true then
+		main.StopViewChecking = true
+	end
+	
 	-- Checks if main.StopViewChecking is set to true. If it is, it returns
 	if main.StopViewChecking == true then
+		main.EnemySightCheck:Disconnect() -- Disconnects the RBXScriptConnection
 		return
 	end
 	
@@ -262,7 +275,6 @@ function VisualisationInformation:VisualiseShootingRaycast(distance : number, st
 	-- Tries to find if a folder to store all the paths has already been made. If it hasn't, then it creates the folder
 	local foundFolder = VisualisationInformation.VisualisationFolder
 	if foundFolder then
-		foundFolder:ClearAllChildren() -- Clears all previous nodes in the folder
 	else
 		-- Creates a new folder with the name "PathVisualiser" and parents it to the workspace
 		foundFolder = Instance.new("Folder")
@@ -278,17 +290,16 @@ function VisualisationInformation:VisualiseShootingRaycast(distance : number, st
 	beam.Size = Vector3.new(distance, 0.3, 0.3)
 	beam.Shape = Enum.PartType.Cylinder
 	beam.CanCollide = false
-	beam.CFrame = CFrame.lookAt(midPoint, startPosition) * CFrame.Angles(0, math.rad(90), 0)
+	beam.CFrame = CFrame.lookAt(midPoint, endPosition) * CFrame.Angles(0, math.rad(90), 0)
 	beam.Anchored = true
 	beam.Color = Color3.new(1, 1, 0.498039)
 	beam.Material = "Neon"
 	beam.Transparency = 0.5
 	beam.Locked = true
+	beam.Name = "Bullet Tracer"
 	beam.Parent = foundFolder
-	
-	task.wait(CombatInformation.GunStatistics.ShotDelay)
-	
-	beam:Destroy()
+
+	game:GetService("Debris"):AddItem(beam, CombatInformation.GunStatistics.ShotDelay) -- Destroys the tracer after CombatInformation.GunStatistics.ShotDelay amount of seconds
 end
 
 --[[
@@ -324,6 +335,11 @@ if main.Configurations.AllowAdjustableSettings == true then
 			
 			-- Creates a coroutine to listen for if the attribute changes, and then sets the main.Configuration<index> to the value
 			local function listenToAttribute() : nil
+				if main.Configurations.AllowAdjustableSettings == false then
+					print("main.Configurations.AllowAdjustableSettings is set to false")
+					return
+				end
+				
 				storedValue = script:GetAttribute(fixedNamingScheme)
 				
 				-- Adds type checking to make sure that the new value will be the same type as the old value
@@ -347,6 +363,30 @@ if main.Configurations.AllowAdjustableSettings == true then
 				end
 			end
 			script:GetAttributeChangedSignal(fixedNamingScheme):Connect(listenToAttribute)
+		end
+	end
+	
+	-- Removes the created attributes from the function above
+	function main:RemoveAttributeConfigurations()
+		for _, attribute : string in pairs(main.Configurations.Attributes) do
+			local parsedValue : tabe = string.split(attribute, "/")
+			local storedValue : any = nil
+			local attributeType : string = nil
+			local maxIterations : number = table.maxn(parsedValue)
+			local fixedNamingScheme : string = ""
+
+			-- Gets the main.Configurations config from the parsed value
+			for i = 1, maxIterations do
+				if i == 1 then
+					storedValue = main.Configurations[parsedValue[i]]
+					fixedNamingScheme = parsedValue[i]
+				else
+					storedValue = storedValue[parsedValue[i]]
+					fixedNamingScheme = fixedNamingScheme .. "_" .. parsedValue[i]
+				end
+			end
+
+			script:SetAttribute(fixedNamingScheme, nil) -- Removes the created attribute
 		end
 	end
 	
@@ -620,20 +660,45 @@ function main:IdentifyTarget(weaponType : number) : Part
 	return randomlySelected
 end
 
+-- This function is used to reload the weapon and removes bullets from the reserves
+function main:Reload() : nil
+	local bulletsToRemove = math.abs(CombatInformation.GunStatistics.MagazineSize-main.GunStatistics.Magazine) --[[ Calculates the total number of bullets to remove from reserves,
+																													uses math.abs so that bullets are always removed, never added ]]
+	main.GunStatistics.Reserve -= bulletsToRemove
+	main.GunStatistics.Magazine = CombatInformation.GunStatistics.MagazineSize
+	
+	if main.GunStatistics.Reserve > 0 then
+		script:SetAttribute("Reloading", true)
+		task.wait(CombatInformation.GunStatistics.ReloadSpeed)
+		script:SetAttribute("Reloading", false)
+	else
+		main.OutOfAmmo = true
+		script:SetAttribute("OutOfBullets", true)
+	end
+end
+
+-- This function is used to remove a bullet from the magazine
+function main:DepleteBullet() : nil
+	main.GunStatistics.Magazine -= 1
+	if main.GunStatistics.Magazine <= 0 then
+		main:Reload()
+	end
+end
+
 -- Creates a shot that is fired
 function main:FireGun() : nil
+	-- Checks if the time between shots is >= CombatInformation.GunStatistics.ShotDelay, and if not returns
+	if tick()-main.LastShot < CombatInformation.GunStatistics.ShotDelay then
+		return
+	end
+	main.LastShot = tick() -- Updates main.LastShot
+	
 	local target = main:IdentifyTarget(1) -- Gets a target
 
 	-- Nil checks the target to make sure there's a target selected
 	if target == nil then
 		return
 	end
-	
-	-- Checks if the time between shots is >= CombatInformation.GunStatistics.ShotDelay, and if not returns
-	if tick()-main.LastShot < CombatInformation.GunStatistics.ShotDelay then
-		return
-	end
-	main.LastShot = tick() -- Updates main.LastShot
 	
 	-- Identifies if the gun is a burst gun or not
 	local burstWeapon = false
@@ -647,13 +712,18 @@ function main:FireGun() : nil
 	-- Creates a CFrame that looks at the target
 	local lookAtCFrame = CFrame.lookAt(startingPosition, target.Position)
 	
-	-- Factors spread into the lookAtCFrame
-	local adjustedCFrame = lookAtCFrame * CFrame.Angles(math.rad(main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.XSpread,
-		CombatInformation.GunStatistics.XSpread)), math.rad(main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.YSpread,
-			CombatInformation.GunStatistics.YSpread)), 0)
-	
-	-- Gets the adjustedCFrame.LookVector and multiplies it by CombatInformation.GunStatistics.Range to get the full distance of the shot
-	local maxDistance = adjustedCFrame.LookVector * CombatInformation.GunStatistics.Range
+	local function CalculateSpread() : Vector3
+		local spreadX = main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.XSpread, CombatInformation.GunStatistics.XSpread)
+		local spraedY = main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.YSpread, CombatInformation.GunStatistics.YSpread)
+
+		-- Factors spread into the lookAtCFrame
+		local adjustedCFrame = lookAtCFrame * CFrame.Angles(math.rad(spreadX), math.rad(spraedY), 0)
+
+		-- Gets the adjustedCFrame.LookVector and multiplies it by CombatInformation.GunStatistics.Range to get the full distance of the shot
+		local maxDistance = adjustedCFrame.LookVector * CombatInformation.GunStatistics.Range
+		
+		return maxDistance
+	end
 	
 	local shootingRaycastParams = RaycastParams.new()
 	
@@ -661,33 +731,49 @@ function main:FireGun() : nil
 	if CombatInformation.GunStatistics.TypeOfBullet == 1 then
 		local hitRaycastParams = RaycastParams.new()
 		hitRaycastParams.FilterType = Enum.RaycastFilterType[main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType]
-		hitRaycastParams.FilterDescendantsInstances = {main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents, VisualisationInformation.VisualisationFolder}
+		hitRaycastParams.FilterDescendantsInstances = {main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents, workspace.Rig, VisualisationInformation.VisualisationFolder}
 		hitRaycastParams.RespectCanCollide = false
-		
-		local rayCast = game.Workspace:Raycast(startingPosition, maxDistance)
-		if rayCast then
-			local hitPart = rayCast.Instance
-			if hitPart then
-				-- Visualises the bullet path if VisualisationInformation.VisualiseShooting is set to true
-				if VisualisationInformation.VisualiseShooting == true then
-					VisualisationInformation:VisualiseShootingRaycast(rayCast.Distance, startingPosition, hitPart.Position)
-				end
-				
-				local hitHumanoid : Humanoid = nil
 
-				-- Attempts to find the Humanoid of the hit part
-				hitHumanoid = hitPart:FindFirstChildOfClass("Humanoid")
-				if hitHumanoid == nil then
-					hitHumanoid = hitPart.Parent:FindFirstChildOfClass("Humanoid")
+		main:DepleteBullet() -- Remove a bullet due to shooting
+		
+		for i = 1, CombatInformation.GunStatistics.AmountOfShots, 1 do -- Shotgun functionality
+			local rayCast = game.Workspace:Raycast(startingPosition, CalculateSpread(), hitRaycastParams)
+
+			if rayCast then
+				local hitPart = rayCast.Instance
+				if hitPart then
+					
+					-- Visualises the bullet path if VisualisationInformation.VisualiseShooting is set to true
+					if VisualisationInformation.VisualiseShooting == true then
+						VisualisationInformation:VisualiseShootingRaycast(rayCast.Distance, startingPosition, hitPart.Position)
+					end
+
+					if hitPart:IsDescendantOf(rig) then
+						print("Hit self")
+						continue
+					end
+
+					local hitHumanoid : Humanoid = nil
+
+					-- Attempts to find the Humanoid of the hit part
+					hitHumanoid = hitPart:FindFirstChildOfClass("Humanoid")
+					if hitHumanoid == nil then
+						local partParent = hitPart.Parent
+						
+						if partParent == nil then
+						else
+							hitHumanoid = hitPart.Parent:FindFirstChildOfClass("Humanoid")
+						end
+					end
+
+					-- If no Humanoid is found, return
+					if hitHumanoid == nil then
+						continue
+					end
+
+					-- Deals damage to the hit part
+					hitHumanoid:TakeDamage(CombatInformation.GunStatistics.Damage)
 				end
-				
-				-- If no Humanoid is found, return
-				if hitHumanoid == nil then
-					return
-				end
-				
-				-- Deals damage to the hit part
-				hitHumanoid:TakeDamage(CombatInformation.GunStatistics.Damage)
 			end
 		end
 	end
@@ -699,20 +785,34 @@ function main:CombatDecider() : nil
 	main:FireGun()
 end
 
--- Tries to run the code for main.Configuratons.AllowAdjustableSettings. We don't care if it fails.
-local ignore, ignored = pcall(function()
-	main:SetUpAttributeConfigurations()
-end)
+-- Function used to clone certain variables from CombatInformation.GunStatistics
+function main:CloneGunStatistics()
+	main.GunStatistics.Magazine = CombatInformation.GunStatistics.MagazineSize
+	main.GunStatistics.Reserve = CombatInformation.GunStatistics.ReserveSize
+end
+main:CloneGunStatistics()
 
 -- Update the enemy table
 main.UpdateEnemyTableListener = main.RunService.Heartbeat:Connect(main.UpdateEnemyTable)
 
 while task.wait() do
-	if main.Died == true then
+	if main.Died == true or main.OutOfAmmo == true then
 		break
 	end
 	main:CombatDecider()
+	
+	if main.NulledAdjustableSettings == true and main.Configurations.AllowAdjustableSettings == true then
+		main:SetUpAttributeConfigurations()
+		main.CreatedAdjustableSettings = true
+		main.NulledAdjustableSettings = false
+	elseif main.CreatedAdjustableSettings == true and main.Configurations.AllowAdjustableSettings == false then
+		main:RemoveAttributeConfigurations()
+		main.CreatedAdjustableSettings = false
+		main.NulledAdjustableSettings = true
+	end
 end
+
+script:SetAttribute("CanSeeEnemy", false) -- Sets the script's CanSeeEnemy attribute to false so that the pathfinding script won't be halted
 
 -- Destroys the visualisation folder
 if VisualisationInformation.VisualisationFolder ~= nil then
