@@ -28,6 +28,11 @@ main.RandomNumberGenerator = Random.new()
 -- Table to store all variables used for pathfinding
 main.PathfindingInformation = {}
 
+-- Table used for the goal folder(s) that the rig will pathfind to
+main.PathfindingInformation.GoalFolders = {
+	workspace.Goals,
+}
+
 -- Variables used for the AgentParameters argument when creating a path via PathfindingService:ComputeAsync()
 main.PathfindingInformation.AgentRadius = 3
 main.PathfindingInformation.AgentHeight = 5
@@ -44,7 +49,9 @@ main.PathfindingInformation.BannedFolders = {workspace.Obstacles}
 
 -- Variable used for the chance that the rig will skip pathing the nearest goal
 main.PathfindingInformation.SkipClosestChance = 50 -- Calculated value is (this)/100 (required to be positive and <= 100)
+
 main.PathfindingInformation.ForcedPart = nil -- A variable to store a part to force the programme to pathfind to
+main.PathfindingInformation.RecheckPossibleTargets = 10 -- In seconds, if the rig runs out of targets it will halt pathfinding for this long and then try again
 
 
 
@@ -330,7 +337,24 @@ end
 
 -- Function used by the programme to calculate and return a chosen goal
 function main:ChoosePoint() : Part
-	main.Goals = workspace.Goals:GetChildren() -- Puts all the goals into main.Goals
+	table.clear(main.Goals) -- Resets main.Goals
+	
+	-- Puts all the goals into main.Goals
+	for _, folder : Folder in pairs(main.PathfindingInformation.GoalFolders) do
+		for _, goal : Model | Part in pairs(folder:GetChildren()) do
+			local humanoid : Humanoid? = goal:FindFirstChildOfClass("Humanoid")
+			
+			-- Checks if the goal has a humanoid, and if its health is <= 0, doesn't add it to the goal list
+			if humanoid then
+				if humanoid.Health <= 0 then
+					continue
+				end
+			end
+			
+			table.insert(main.Goals, goal)
+		end
+	end
+	
 	local goals = table.clone(main.Goals) -- Creates a clone of main.Goals
 	
 	main.RandomNumberGenerator:Shuffle(goals) -- Shuffles the goals table, for randomness
@@ -342,7 +366,10 @@ function main:ChoosePoint() : Part
 	
 	-- Throws an error if there are no more goals after the previous operation
 	if table.maxn(goals) == 0 then
-		error(script:GetFullName() .. " ran out of pathfinding options.")
+		warn(script:GetFullName() .. " ran out of pathfinding options.")
+		task.wait(main.PathfindingInformation.RecheckPossibleTargets)
+		table.clear(main.PreviousPoints)
+		return nil
 	end
 	
 	--[[
@@ -713,16 +740,26 @@ function main:MoveThroughWaypoints() : nil
 		VisualisationInformation.BillboardTextLabel.Text = "Target: " .. main.TrueGoal.Name -- Changes the VisualisationInformation.BillboardTextLabel text to the current goal 
 	end
 	
+	-- Listener and variables to track if the target has died or not, and if so to find a new target
+	local goalHumanoid : Humanoid? = main.TrueGoal:FindFirstChildOfClass("Humanoid")
+	local targetDied = false
+	
+	if goalHumanoid then
+		goalHumanoid.Died:Connect(function()
+			targetDied = true
+		end)
+	end
+	
 	-- Loops through each waypoint, moving to each waypoint and doing a specific action for each, breaks out if the path is blocked
 	for i, v in pairs(waypoints) do
-		if main.Died == true then
+		if main.Died == true or targetDied == true then -- If the rig or target dies, break out of the loop
 			break
 		end
 		
 		ShootingFunctions:Halt() -- Halts the programme if the rig is able to see an enemy
 		
 		while main.Moving == true do -- Halts the programme until the rig has stopped moving
-			if main.Died == true then
+			if main.Died == true then -- If the rig dies, break out of the loop
 				break
 			end
 			
