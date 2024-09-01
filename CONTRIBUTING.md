@@ -8,11 +8,11 @@ When you open an issue or make a pull request please follow this *non-extensive*
 ## Table of Contents:
 [Labelling Your PR/Issue](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#labelling-your-prissue)
 
-[Making A Suggestion](https://github.com/SarkWrk/TestPathExperience/blob/main#making-a-suggestion)
+[Making A Suggestion](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#making-a-suggestion)
 
-[Making An Issue](https://github.com/SarkWrk/TestPathExperience/blob/main#making-an-issue)
+[Making An Issue](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#making-an-issue)
 
-[Making A PR](https://github.com/SarkWrk/TestPathExperience/blob/main#making-a-pr)
+[Making A PR](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#making-a-pr)
 
 <hr>
 
@@ -91,7 +91,7 @@ When making an issue, please format your issue like this (formatting is not requ
 [A description/explanation of how you think the issue can be fixed.\]
 
 >[!IMPORTANT]
->**If you know how to code it and are willing to put it into the codebase, please make a [PR](https://github.com/SarkWrk/TestPathExperience/blob/main#making-a-pr) instead of an issue**
+>**If you know how to code it and are willing to put it into the codebase, please make a [PR](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#making-a-pr) instead of an issue**
 
 <hr>
 
