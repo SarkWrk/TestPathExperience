@@ -6,21 +6,21 @@
   - Instead of erroring when running out of pathfinding goals, the script will now halt for `main.PathfindingInformation.RecheckPossibleTargets` amount of seconds, and then tries to pathfind to any goal again.
   - Now warns the full name of the goal it's trying to reach when unable to reach a goal.
 - ShootingScript:
-  - After further review, it seems that the spread factor is not wildly out of proportions. ([#6](https://github.com/SarkWrk/TestPathExperience/issues/6#issue-2479747071) has been closed.)
-    - Please re: Known Issues.
-  - Added functionality that removes bullets from magazines and reserves. ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
-  - Added functionality for shotguns (or more generally, being able to shoot multiple pellets in one shot). ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
-    - Due to this, `VisualisationInformation:VisualiseShootingRaycast()` has been changed to allow multiple shots to be visualised at once. Visualisations are destroyed after `CombatInformation.GunStatistics.ShotDelay` amount of seconds.
-  - Added functionality for burst-type guns. ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
-  - The script will safely deactivate when running out of bullets.
-  - Added attributes:
-    - OutOfBullets - Publicises if the script is out of bullets.
-    - Reloading - Publicises if the script is reloading.
-  - If `main.Configurations.AllowAdjustableSettings` is set to true and is a changeable value in `main.Configurations.Attributes`, when `main.Configurations.AllowAdjustableSettings` is set to false, all created adjustable attributes will be nilled out.
-  - Fixed an oversight where `hitRaycastParams` wasn't added into the overloads for raycasting when `CombatInformation.GunStatistics.TypeOfBullet` is set to Raycast.
-
-## Known Issues:
-- The spread does not appear to be fully random, and instead picks certain areas more than others. However, this could just be due to an issue with how raycasts are being visualised.
+  - Visualisations:
+    - After further review, it seems that the spread factor is not wildly out of proportions. ([#6](https://github.com/SarkWrk/TestPathExperience/issues/6#issue-2479747071) has been closed.)
+    - In accordance with the above, fixed main:FireGun() passing hitPart.Position instead of rayCast.Position to VisualisationInformation:VisualiseShootingRaycast().
+  - New Functionality:
+    - Added functionality that removes bullets from magazines and reserves. ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
+    - Added functionality for shotguns (or more generally, being able to shoot multiple pellets in one shot). ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
+      - Due to this, `VisualisationInformation:VisualiseShootingRaycast()` has been changed to allow multiple shots to be visualised at once. Visualisations are destroyed after `CombatInformation.GunStatistics.ShotDelay` amount of seconds.
+    - Added functionality for burst-type guns. ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
+    - The script will safely deactivate when running out of bullets.
+    - Added attributes:
+      - OutOfBullets - Publicises if the script is out of bullets.
+      - Reloading - Publicises if the script is reloading.
+  - Changes:
+    - If `main.Configurations.AllowAdjustableSettings` is set to true and is a changeable value in `main.Configurations.Attributes`, when `main.Configurations.AllowAdjustableSettings` is set to false, all created adjustable attributes will be nilled out.
+    - Fixed an oversight where `hitRaycastParams` wasn't added into the overloads for raycasting when `CombatInformation.GunStatistics.TypeOfBullet` is set to Raycast.
 
 <hr>
 
