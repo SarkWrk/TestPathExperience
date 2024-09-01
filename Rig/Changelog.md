@@ -8,7 +8,7 @@
 - ShootingScript:
   - Visualisations:
     - After further review, it seems that the spread factor is not wildly out of proportions. ([#6](https://github.com/SarkWrk/TestPathExperience/issues/6#issue-2479747071) has been closed.)
-    - In accordance with the above, fixed main:FireGun() passing hitPart.Position instead of rayCast.Position to VisualisationInformation:VisualiseShootingRaycast().
+    - In accordance with the above, fixed `main:FireGun()` passing `hitPart.Position` instead of `rayCast.Position`  to `VisualisationInformation:VisualiseShootingRaycast()`.
   - New Functionality:
     - Added functionality that removes bullets from magazines and reserves. ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
     - Added functionality for shotguns (or more generally, being able to shoot multiple pellets in one shot). ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
