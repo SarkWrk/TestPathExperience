@@ -127,9 +127,9 @@ CombatInformation.Target = {Favoured = nil, Total = {}} --[[ The favoured value 
 The total value is filled with nested tables with information about enemies that can be seen.]]
 CombatInformation.GunStatistics = { -- Table referenced when shooting
 	Damage = 10, -- In HP
-	ShotDelay = 0.05, -- In seconds
+	ShotDelay = 0.1, -- In seconds
 	AmountOfShots = 5, -- In bullets
-	ShotsPerBurst = 1, -- In amount of bullets per shot
+	ShotsPerBurst = 5, -- In amount of bullets per shot
 	DelayBetweenBurst = nil, -- Leave nil if not in burst
 	Range = 150, -- In studs
 	BulletDrop = 0, -- In studs per second, only used when TypeOfBullet type is NOT 1
@@ -285,11 +285,14 @@ function VisualisationInformation:VisualiseShootingRaycast(distance : number, st
 	
 	local midPoint = Vector3.new((startPosition.X + endPosition.X)/2, (startPosition.Y + endPosition.Y)/2, (startPosition.Z + endPosition.Z)/2) -- Gets the midpoint to place the beam
 
+	local trackingString = endPosition.X .. ", " .. endPosition.Y .. ", " .. endPosition.Z
+
 	-- Creates the beam
 	local beam = Instance.new("Part")
 	beam.Size = Vector3.new(distance, 0.3, 0.3)
 	beam.Shape = Enum.PartType.Cylinder
 	beam.CanCollide = false
+	beam.CastShadow = false
 	beam.CFrame = CFrame.lookAt(midPoint, endPosition) * CFrame.Angles(0, math.rad(90), 0)
 	beam.Anchored = true
 	beam.Color = Color3.new(1, 1, 0.498039)
@@ -336,7 +339,6 @@ if main.Configurations.AllowAdjustableSettings == true then
 			-- Creates a coroutine to listen for if the attribute changes, and then sets the main.Configuration<index> to the value
 			local function listenToAttribute() : nil
 				if main.Configurations.AllowAdjustableSettings == false then
-					print("main.Configurations.AllowAdjustableSettings is set to false")
 					return
 				end
 				
@@ -712,6 +714,7 @@ function main:FireGun() : nil
 	-- Creates a CFrame that looks at the target
 	local lookAtCFrame = CFrame.lookAt(startingPosition, target.Position)
 	
+	-- Adds in a spread factor to the CFrame.LookAt for where to shoot
 	local function CalculateSpread() : Vector3
 		local spreadX = main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.XSpread, CombatInformation.GunStatistics.XSpread)
 		local spraedY = main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.YSpread, CombatInformation.GunStatistics.YSpread)
@@ -725,8 +728,6 @@ function main:FireGun() : nil
 		return maxDistance
 	end
 	
-	local shootingRaycastParams = RaycastParams.new()
-	
 	-- Creates a raycast and if it hits anything, will attempt to find the humanoid of the hit object and damage it dealing CombatInformation.GunStatistics.Damage HP
 	if CombatInformation.GunStatistics.TypeOfBullet == 1 then
 		local hitRaycastParams = RaycastParams.new()
@@ -734,46 +735,55 @@ function main:FireGun() : nil
 		hitRaycastParams.FilterDescendantsInstances = {main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents, workspace.Rig, VisualisationInformation.VisualisationFolder}
 		hitRaycastParams.RespectCanCollide = false
 
-		main:DepleteBullet() -- Remove a bullet due to shooting
-		
-		for i = 1, CombatInformation.GunStatistics.AmountOfShots, 1 do -- Shotgun functionality
-			local rayCast = game.Workspace:Raycast(startingPosition, CalculateSpread(), hitRaycastParams)
+		-- If the gun is a burst, shoot CombatInformation.GunStatistics.ShotsPerBurst times
+		for i = 1, (burstWeapon == true) and CombatInformation.GunStatistics.ShotsPerBurst or 1 do
+			main:DepleteBullet() -- Remove a bullet due to shooting
+			
+			-- If the gun is a shotgun, shoot CombatInformation.GunStatistics.AmountOfShots times
+			for i = 1, CombatInformation.GunStatistics.AmountOfShots, 1 do
+				local rayCast = game.Workspace:Raycast(startingPosition, CalculateSpread(), hitRaycastParams)
 
-			if rayCast then
-				local hitPart = rayCast.Instance
-				if hitPart then
-					
-					-- Visualises the bullet path if VisualisationInformation.VisualiseShooting is set to true
-					if VisualisationInformation.VisualiseShooting == true then
-						VisualisationInformation:VisualiseShootingRaycast(rayCast.Distance, startingPosition, hitPart.Position)
-					end
-
-					if hitPart:IsDescendantOf(rig) then
-						print("Hit self")
-						continue
-					end
-
-					local hitHumanoid : Humanoid = nil
-
-					-- Attempts to find the Humanoid of the hit part
-					hitHumanoid = hitPart:FindFirstChildOfClass("Humanoid")
-					if hitHumanoid == nil then
-						local partParent = hitPart.Parent
+				if rayCast then
+					local hitPart = rayCast.Instance
+					if hitPart then
 						
-						if partParent == nil then
-						else
-							hitHumanoid = hitPart.Parent:FindFirstChildOfClass("Humanoid")
+						-- Visualises the bullet path if VisualisationInformation.VisualiseShooting is set to true
+						if VisualisationInformation.VisualiseShooting == true then
+							VisualisationInformation:VisualiseShootingRaycast(rayCast.Distance, startingPosition, rayCast.Position)
 						end
-					end
 
-					-- If no Humanoid is found, return
-					if hitHumanoid == nil then
-						continue
-					end
+						if hitPart:IsDescendantOf(rig) then
+							print("Hit self")
+							continue
+						end
 
-					-- Deals damage to the hit part
-					hitHumanoid:TakeDamage(CombatInformation.GunStatistics.Damage)
+						local hitHumanoid : Humanoid = nil
+
+						-- Attempts to find the Humanoid of the hit part
+						hitHumanoid = hitPart:FindFirstChildOfClass("Humanoid")
+						if hitHumanoid == nil then
+							local partParent = hitPart.Parent
+							
+							if partParent == nil then
+							else
+								hitHumanoid = hitPart.Parent:FindFirstChildOfClass("Humanoid")
+							end
+						end
+
+						-- If no Humanoid is found, return
+						if hitHumanoid == nil then
+							continue
+						end
+
+						-- Deals damage to the hit part
+						hitHumanoid:TakeDamage(CombatInformation.GunStatistics.Damage)
+					end
 				end
+			end
+			
+			-- If the gun is a burst, halt for CombatInformation.GunStatistics.DelayBetweenBurst seconds
+			if burstWeapon == true then
+				task.wait(CombatInformation.GunStatistics.DelayBetweenBurst)
 			end
 		end
 	end
