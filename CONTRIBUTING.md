@@ -16,7 +16,7 @@ When you open an issue or make a pull request please follow this *non-extensive*
 
 [Making A PR](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#making-a-pr)
 
-[Examples]()
+[Examples](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#examples)
 
 <hr>
 
