@@ -2,6 +2,8 @@
 Thank you for considering making an Issue/PR to this repo!
 
 When you open an issue or make a pull request please follow this *non-extensive* rule set!
+>[!NOTE]
+>Make your Issue/PR titles shortened versions of why you're making one. You will explain in full the details inside it.
 
 <hr>
 
@@ -13,6 +15,8 @@ When you open an issue or make a pull request please follow this *non-extensive*
 [Making An Issue](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#making-an-issue)
 
 [Making A PR](https://github.com/SarkWrk/TestPathExperience/blob/main/CONTRIBUTING.md#making-a-pr)
+
+[Examples]()
 
 <hr>
 
@@ -127,3 +131,58 @@ Please format your PR like this (formatting is not required, but warmly welcomed
 >When adding your code, always make sure to comment what important parts of your code do. E.g.: Functions and important variables.
 >
 >**Any non-commented PR bug fixes will be closed without consideration.**
+
+<hr>
+
+## Examples
+Note that the "Title" and "Labels" will be in brackets, as these aren't real issues/PRs.
+
+### Issue Suggestion:
+*[Title: "[SUGGESTION\] Make Rigs Do The Flop" | Labels: suggestion, enhancement\]*
+
+**Goal: Make rigs sometimes do the flop when idled**
+
+I think that this should be added as a possible idle animation because it's funny.
+
+### PR Suggestion:
+*[Title "[SUGGESTION\] Make Players Have Infinite HP" | Labels: suggestion, expiremental\]*
+
+**Goal: Make Players Have Infinite HP | Code stability: Sometimes breaks when the player does not spawn in within 6 seconds, and when the player is lagging.**
+
+This change should be added to players because the AI is too overpowered, and due to that this change will make it more fair for the players.
+
+**Documentation Changes:**
+
++Invincibility
+- boolean, writeable
+- When set to true the player the script is parented will instantly regenerate lost HP when taking damage
+
+### Issue:
+*[Title "Rigs Shooting Does Not Choose Random Positions" | Labels: bug\]*
+
+**Issue:**
+
+When shooting raycast visualisations are turned on, the bullet tracers heavily favour specific spots around the target when shooting.
+
+This is an issue because it shows that the way spread is calculated for shooting is not random, and instead appears to heavily favour specific angles.
+
+**Evidence:**
+
+![image](https://github.com/user-attachments/assets/3207ba71-275e-41e3-af84-22b8ade55adb)
+
+In this picture, you can see the bullet tracers are heavily favouring the maximum y-spread angles instead of being randomly spread out.
+
+### PR:
+*[Title: "Missing Overload In the Shooting Raycast Operation" | Labels: bug\]*
+
+**Issue:**
+
+In the raycast function located in ShootingScript under the shooting function, the operation is missing a RaycastParams overload which causes the bullets to hit bullet tracers instead of ignoring them.
+
+This is an issue because it causes the raycasting function to consider every single part in the workspace instead of every part except from specified folders.
+
+**Code:**
+
+What my code does is add the already defined RaycastParams to the overload list of the raycast.
+
+*Code stability:* Fully stable
