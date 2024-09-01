@@ -482,7 +482,7 @@ function main:GetPathfindingWaypoints() : table
 		return path:GetWaypoints()
 	else
 		-- If the path isn't sucessfully created, warns relevant information, halts the programme for 0.5s, and returns an empty table
-		warn("Path status : " .. path.Status.Name .. " | Goal: " .. goal.Name .. " | Warning : ", no)
+		warn("Path status : " .. path.Status.Name .. " | Goal: " .. goal:GetFullName() .. " | Warning : ", no)
 		task.wait(0.5)
 		return {}
 	end
