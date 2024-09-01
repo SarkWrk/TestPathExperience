@@ -4,6 +4,7 @@
 - PathfindingScript:
   - Added health checking to the code that adds potential goals to the goal list so that only alive goals and goals without health will be picked from.
   - Instead of erroring when running out of pathfinding goals, the script will now halt for `main.PathfindingInformation.RecheckPossibleTargets` amount of seconds, and then tries to pathfind to any goal again.
+  - Now warns the full name of the goal it's trying to reach when unable to reach a goal.
 - ShootingScript:
   - After further review, it seems that the spread factor is not wildly out of proportions. ([#6](https://github.com/SarkWrk/TestPathExperience/issues/6#issue-2479747071) has been closed.)
     - Please re: Known Issues.
