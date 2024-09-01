@@ -10,6 +10,7 @@
   - Added functionality that removes bullets from magazines and reserves. ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
   - Added functionality for shotguns (or more generally, being able to shoot multiple pellets in one shot). ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
     - Due to this, `VisualisationInformation:VisualiseShootingRaycast()` has been changed to allow multiple shots to be visualised at once. Visualisations are destroyed after `CombatInformation.GunStatistics.ShotDelay` amount of seconds.
+  - Added functionality for burst-type guns. ([#7](https://github.com/SarkWrk/TestPathExperience/issues/7#issue-2479749234))
   - The script will safely deactivate when running out of bullets.
   - Added attributes:
     - OutOfBullets - Publicises if the script is out of bullets.
