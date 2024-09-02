@@ -3,6 +3,8 @@
   - Additions:
     - New "Shot" BindableEvent.
       - This event gets fired whenever a bullet gets removed from the magazine. (Subject to change.)
+  - Changes:
+    - Enemies without Humanoids are no longer considered "enemies", and therefore will no longer be targeted.
 
 # 0.4.0 (Beta)
 - General:
