@@ -1,3 +1,9 @@
+# 0.5.0 (beta)
+- ShootingScript:
+  - Additions:
+    - New "Shot" BindableEvent.
+      - This event gets fired whenever a bullet gets removed from the magazine. (Subject to change.)
+
 # 0.4.0 (Beta)
 - General:
   - Instead of an increasing number, this changelog now follows Semantic Versioning. (Previous changes have also changed to follow Semantic Versioning.)
