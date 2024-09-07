@@ -11,7 +11,9 @@
     - The rig now looks at its target if the target's last recorded position is >= `main.Configurations.LookDirectionFidelity`.
   - Changes:
     - Enemies without Humanoids are no longer considered "enemies", and therefore will no longer be targeted.
-    - `main.LastShot` is also updated at the end of `main:FireGun` to more accurately track how long to delay shots.
+    - `main.LastShot` is also updated at the end of `main:FireGun()` to more accurately track how long to delay shots.
+  - Fixes:
+    - Fixed `main:IdentifyTarget()` never being able to prioritise a favoured target.
 
 # 0.4.0 (Beta)
 - General:
