@@ -1,4 +1,9 @@
-# 0.5.0 (beta)
+# 1.0.0 (beta)
+- Major changes:
+  - **Moved to a tag-based system instead of an OOP hierarchy for PathfindingScript and ShootingScript.**
+    - Inside these scripts, the following has changed:
+    - Some variables have been renamed (specifically those that pertain to containing folders).
+    - ShootingScript has a new function "UpdateTables" that is ran on the main thread alongside `main:CombatDecider()`.
 - ShootingScript:
   - Additions:
     - New "Shot" BindableEvent.
