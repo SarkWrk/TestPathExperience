@@ -8,8 +8,10 @@
   - Additions:
     - New "Shot" BindableEvent.
       - This event gets fired whenever a bullet gets removed from the magazine. (Subject to change.)
+    - The rig now looks at its target if the target's last recorded position is >= `main.Configurations.LookDirectionFidelity`.
   - Changes:
     - Enemies without Humanoids are no longer considered "enemies", and therefore will no longer be targeted.
+    - `main.LastShot` is also updated at the end of `main:FireGun` to more accurately track how long to delay shots.
 
 # 0.4.0 (Beta)
 - General:
