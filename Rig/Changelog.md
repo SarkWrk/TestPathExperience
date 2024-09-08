@@ -9,9 +9,21 @@
     - New "Shot" BindableEvent.
       - This event gets fired whenever a bullet gets removed from the magazine. (Subject to change.)
     - The rig now looks at its target if the target's last recorded position is >= `main.Configurations.LookDirectionFidelity`.
+    - Added `Invisibility` and `Defense` attributes to be considered when targetting.
+      - The `Defense` attribute reduces damage by that percent (i.e., 100 defense = 100% of damage negated, 50% defense = 50% of damage negated, 10% = 10% negated, etc).
+      - The `Invisibility` attribute makes the target impossible to be shot.
   - Changes:
     - Enemies without Humanoids are no longer considered "enemies", and therefore will no longer be targeted.
     - `main.LastShot` is also updated at the end of `main:FireGun()` to more accurately track how long to delay shots.
+    - Changed the scoring system. It now follows this logic:
+      - Higher health = less likely to be shot / Less health = more likely to be shot
+        - Logic: *Score = Multiplier - (Multiplier ÷ Health)*
+      - Higher distance = less likely to be shot / Less distance = more likely to be shot
+        - Logic: *Score = Distance × Multiplier*
+      - Less threatlevel = less likely to be shot / Higher threat level = more likely to be shot
+        - Logic: *Score = ThreatLevel ÷ Multiplier*
+      - Less defense = less likely to be shot / Higher defense = more likely to be shot
+        - Logic: *Score = Defense ÷ Multiplier*
   - Fixes:
     - Fixed `main:IdentifyTarget()` never being able to prioritise a favoured target.
 
