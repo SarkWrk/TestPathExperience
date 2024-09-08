@@ -11,6 +11,7 @@
     - The rig now looks at its target if the target's last recorded position is >= `main.Configurations.LookDirectionFidelity`.
     - Added `Invisibility` and `Defense` attributes to be considered when targetting.
       - The `Defense` attribute reduces damage by that percent (i.e., 100 defense = 100% of damage negated, 50% defense = 50% of damage negated, 10% = 10% negated, etc).
+        - Note: Having negative defense increases damage.
       - The `Invisibility` attribute makes the target impossible to be shot.
   - Changes:
     - Enemies without Humanoids are no longer considered "enemies", and therefore will no longer be targeted.
