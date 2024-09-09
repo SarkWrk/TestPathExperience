@@ -28,9 +28,9 @@ main.RandomNumberGenerator = Random.new()
 -- Table to store all variables used for pathfinding
 main.PathfindingInformation = {}
 
--- Table used for the goal folder(s) that the rig will pathfind to
-main.PathfindingInformation.GoalFolders = {
-	workspace.Goals,
+-- Table used for the tags that the rig will pathfind to
+main.PathfindingInformation.Goals = {
+	"Goal"
 }
 
 -- Variables used for the AgentParameters argument when creating a path via PathfindingService:ComputeAsync()
@@ -51,7 +51,7 @@ main.PathfindingInformation.BannedFolders = {workspace.Obstacles}
 main.PathfindingInformation.SkipClosestChance = 50 -- Calculated value is (this)/100 (required to be positive and <= 100)
 
 main.PathfindingInformation.ForcedPart = nil -- A variable to store a part to force the programme to pathfind to
-main.PathfindingInformation.RecheckPossibleTargets = 10 -- In seconds, if the rig runs out of targets it will halt pathfinding for this long and then try again
+main.PathfindingInformation.RecheckPossibleTargets = 2 -- In seconds, if the rig runs out of targets it will halt pathfinding for this long and then try again
 
 
 
@@ -86,7 +86,7 @@ VisualisationInformation.JumpNodeSizeMultiplier = 4 -- The size given of the vis
 VisualisationInformation.CustomNodeSizeMultipler = 8 -- The size given of the visualised node with each value being the normal node size multiplied by x
 
 -- Variables used for the main.PathfindingInformation:ChosenVisualiser() function
-VisualisationInformation.VisualiseChoosing = true -- Whether to enable this visualisation
+VisualisationInformation.VisualiseChoosing = false -- Whether to enable this visualisation
 VisualisationInformation.ShowChoosingCircle = true -- Whether to show the distance circle
 VisualisationInformation.ChoosingCircleExpansionDelay = 0.0005 -- How long the programme waits between expanding the circle
 VisualisationInformation.HighlightAppearenceWaitTime = 1 -- How long the programme waits after reaching the chosen goal
@@ -340,17 +340,18 @@ function main:ChoosePoint() : Part
 	table.clear(main.Goals) -- Resets main.Goals
 	
 	-- Puts all the goals into main.Goals
-	for _, folder : Folder in pairs(main.PathfindingInformation.GoalFolders) do
-		for _, goal : Model | Part in pairs(folder:GetChildren()) do
+	for _, tag : string in pairs(main.PathfindingInformation.Goals) do
+		local list = game:GetService("CollectionService"):GetTagged(tag)
+		for _, goal : Model | Part in pairs(list) do
 			local humanoid : Humanoid? = goal:FindFirstChildOfClass("Humanoid")
-			
+
 			-- Checks if the goal has a humanoid, and if its health is <= 0, doesn't add it to the goal list
 			if humanoid then
 				if humanoid.Health <= 0 then
 					continue
 				end
 			end
-			
+
 			table.insert(main.Goals, goal)
 		end
 	end
