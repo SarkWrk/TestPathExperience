@@ -17,6 +17,9 @@ main.Died = false
 main.OutOfAmmo = false -- Used to indicate to the script whether it's out of ammo or not
 main.NulledAdjustableSettings = true -- Used to indicate whether the adjustable settings attributes have been nilled out
 main.CreatedAdjustableSettings = false -- Used to indicate whether the adjustable settings were created
+main.ShootingRaycastIgnoredParts = {} -- Table of instances that get ignored when shooting via raycasts
+main.ViewCheckingIgnoredParts = {} -- Table of instances that get ignored when viewchecking
+main.TargetPosition = Vector3.new(0,0,0) -- Keeps track of the target position, and if the target's magnitude changes enough, makes the rig look at the target
 
 
 
@@ -37,13 +40,14 @@ main.Configurations.RaycastStart = "Head" -- A string identifier for the part us
 main.Configurations.EnemyTableUpdateDelay = 0.1 -- Used to decide how often to update main.EnemyTable, in seconds
 main.Configurations.ViewDistance = 100 -- How far the rig can see, in studs
 main.Configurations.ViewRadius = 30 -- FOV of the rig, in +/-x, therefore: FOV is double what is set
-main.Configurations.EnemyFolders = { --[[
-Table to store folders that enemies can be in.
+main.Configurations.EnemyTags = { --[[
+Table to store enemies that are tagged.
 Can be added and removed from via script.ChangeEnemyTable if main.Configurations.AllowAdjustableSettings is set to true.
 Information on how to add/remove folders will be in the listener event function.
 ]]
-	game.Workspace.Goals	
+	"Goal",
 }
+main.Configurations.LookDirectionFidelity = 5 -- If the .magnitude of the target's position compared to it's previous position has changed >=x, makes the rig look at the target
 
 
 
@@ -65,6 +69,7 @@ main.Configurations.WeaponsConfigurations.GunScoreMultipliers = {}
 main.Configurations.WeaponsConfigurations.GunScoreMultipliers.DistanceScoreMultiplier = 1 -- How much to multiply the distance the target is by x
 main.Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier = 2 -- How much to multiply the health of the target by x
 main.Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier = 3  -- How much to multiply the threat level of the target by x
+main.Configurations.WeaponsConfigurations.GunScoreMultipliers.DefenseScoreMultiplier = 10  -- How much to multiply the defense of the target by x
 
 
 
@@ -73,8 +78,9 @@ main.Configurations.WeaponsConfigurations.ShootingRaycastParams = {}
 
 -- Defines the variables
 main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType = "Exclude"
-main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of instances to get filtered in/out by the raycast
-	workspace.Rig,
+main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of tags to get filtered in/out by the raycast
+	"NPC",
+	"Bullet",
 }
 
 -- Table to store configurations for the RaycastParams for the viewcheck raycast
@@ -84,11 +90,12 @@ main.Configurations.RaycastParams = {}
 main.Configurations.RaycastParams.FilterType = "Exclude" -- Case specific
 main.Configurations.RaycastParams.RespectCanCollide = false
 main.Configurations.RaycastParams.IgnoreInViewChecking = { --[[
-Table used to store folders or parts that the rig should ignore when checking if it can see an enemy.
+Table used to store tagged parts that the rig should ignore when checking if it can see an enemy.
 Can be added and removed from via script.ChangeIgnoreViewTable if main.Configurations.AllowAdjustableSettings is set to true.
 Information on how to add/remove parts will be in the listener event function.
 ]]
-	game.Workspace.Rig,
+	"NPC",
+	"Bullet",
 }
 
 
@@ -127,18 +134,18 @@ CombatInformation.Target = {Favoured = nil, Total = {}} --[[ The favoured value 
 The total value is filled with nested tables with information about enemies that can be seen.]]
 CombatInformation.GunStatistics = { -- Table referenced when shooting
 	Damage = 10, -- In HP
-	ShotDelay = 0.1, -- In seconds
-	AmountOfShots = 5, -- In bullets
-	ShotsPerBurst = 5, -- In amount of bullets per shot
+	ShotDelay = 0.05, -- In seconds
+	AmountOfShots = 10, -- In bullets
+	ShotsPerBurst = 3, -- In amount of bullets per shot
 	DelayBetweenBurst = nil, -- Leave nil if not in burst
-	Range = 150, -- In studs
-	BulletDrop = 0, -- In studs per second, only used when TypeOfBullet type is NOT 1
+	Range = 250, -- In studs
+	BulletDrop = 0.1, -- In studs per second, only used when TypeOfBullet type is NOT 1
 	TypeOfBullet = 1, -- 1 : Raycast, 2 : Part
-	XSpread = 5, -- In degrees, +/-x
-	YSpread = 5, -- In degrees, +/-y
-	BulletSpeed = 100, -- Only used if TypeOfBullet is NOT 1
+	XSpread = 3, -- In degrees, +/-x
+	YSpread = 3, -- In degrees, +/-y
+	BulletSpeed = 100, -- In studs per second, only used if TypeOfBullet is NOT 1
 	ReloadSpeed = 1, -- In seconds
-	MagazineSize = 30, -- Bullets per magazine
+	MagazineSize = 150, -- Bullets per magazine
 	ReserveSize = 10000, -- Total bullets that can be shot
 }
 
@@ -201,6 +208,11 @@ main.EnemySightCheck = main.RunService.Heartbeat:Connect(function() : nil
 				return
 			end			
 			
+			-- Continue if the endPart no longer exists
+			if not endPart then
+				continue
+			end
+			
 			-- Creates a new CFrame that looks in the direction of the enemy and sets the view distance using main.Configurations.ViewDistance
 			local newView = CFrame.lookAt(startPart.Position, endPart.Position)
 			local viewDirection = newView.LookVector * main.Configurations.ViewDistance
@@ -217,7 +229,7 @@ main.EnemySightCheck = main.RunService.Heartbeat:Connect(function() : nil
 			local rayCastParams = RaycastParams.new()
 			rayCastParams.FilterType = Enum.RaycastFilterType[main.Configurations.RaycastParams.FilterType]
 			rayCastParams.RespectCanCollide = main.Configurations.RaycastParams.RespectCanCollide
-			rayCastParams.FilterDescendantsInstances = {main.Configurations.RaycastParams.IgnoreInViewChecking, VisualisationInformation.VisualisationFolder}
+			rayCastParams.FilterDescendantsInstances = {main.ViewCheckingIgnoredParts, VisualisationInformation.VisualisationFolder}
 			
 			-- At this point, the programme has identified the end part and the start part to raycast to
 			local raycast = game.Workspace:Raycast(startPart.Position, viewDirection, rayCastParams)
@@ -225,28 +237,31 @@ main.EnemySightCheck = main.RunService.Heartbeat:Connect(function() : nil
 			if raycast then
 				if raycast.Instance then
 					if raycast.Instance:IsDescendantOf(enemy) or raycast.Instance == enemy then
-						-- Code to store information about the enemy
-						local storedInformation = {
-							Distance = math.huge, -- The distance the enemy is from the rig
-							Enemy = endPart, -- Part used for targetting
-							ThreatLevel = 1, -- The TreatLevel of the enemy
-							Health = 100 -- The health of the enemy, defaults to 100
-						}
-						
-						storedInformation.Distance = (startPart.Position-endPart.Position).Magnitude
+						-- Code to store information about the enemy if it has a humanoid, if there's no humanoid it is not considered an enemy
 						local enemyHumanoid : Humanoid = enemy:FindFirstChild("Humanoid")
+						
 						if enemyHumanoid then
+							local storedInformation = {
+								Distance = math.huge, -- The distance the enemy is from the rig
+								Enemy = endPart, -- Part used for targetting
+								ThreatLevel = enemy:GetAttribute("ThreatLevel") or 1, -- The TreatLevel of the enemy
+								Health = 100, -- The health of the enemy, defaults to 100
+								Defense = enemy:GetAttribute("Defense") or 0, -- The enemy's defense, if nil defaults to 0
+							}
+
+							storedInformation.Distance = (startPart.Position-endPart.Position).Magnitude
+							
 							storedInformation.Health = enemyHumanoid.Health
 							
 							-- Checks if the enemy is alive, and if not the programme does not count the enemy as "alive"
 							if storedInformation.Health <= 0 then
 								continue
 							end
+
+							table.insert(CombatInformation.Target.Total, storedInformation) -- Adds the endPart to the target list for shooting
+
+							hasSeenEnemy = true
 						end
-						
-						table.insert(CombatInformation.Target.Total, storedInformation) -- Adds the endPart to the target list for shooting
-						
-						hasSeenEnemy = true
 					end
 				end
 			end
@@ -393,56 +408,30 @@ if main.Configurations.AllowAdjustableSettings == true then
 	end
 	
 	--[[
-	Adds functionality to change main.Configurations.EnemyFolders
+	Adds functionality to change main.Configurations.EnemyTags
 	Accepts overloads:
 	option : boolean → true: add a value to main.Configurations.EnemyFolders, false: remove a value from main.Configurations.EnemyFolders
-	value : Instance | table → Instance: Adds the instance directly to the folder, table will attempt to find the instance through the workspace hierarchy
-	using strings for names. If not every value is a string, the entire search will be thrown out. Any issues with this proccess will throw a warning.
+	value : string: Adds the string directly to the folder
 	]]
 	script.ChangeEnemyTable.Event:Connect(function(option : boolean, value : Folder | table)
-		local toBeChangedFolder : Folder
-		if typeof(value) == "Instance" then
-			toBeChangedFolder = value
-		elseif typeof(value) == "table" then
-			local tempFolder : Instance = nil
-			for i, v in pairs(value) do
-				if type(v) ~= "string" then
-					warn(script:GetFullName() .. ".script.ChangeEnemyTable.Event recieved overload 'value' with a non-string value inside the table.")
-					tempFolder = nil
-					break
-				end
-				
-				if i == 1 then
-					tempFolder = workspace:FindFirstChild(v)
-				else
-					tempFolder = tempFolder:FindFirstChild(v)
-				end
-				if tempFolder == nil then
-					warn(script:GetFullName() .. ".script.ChangeEnemyTable.Event tried to find a Folder with name: " .. v .. ". However, it could not be found.")
-					break
-				end
-			end
-			
-			toBeChangedFolder = tempFolder
+		if main.Configurations.AllowAdjustableSettings == false then
+			return
+		end
+		if typeof(value) == "string" then
 		else
 			warn(script:GetFullName() .. ".script.ChangeEnemyTable.Event recieved an unusable 'value' overload. Recieved value: ", value, " (with type: " .. typeof(value) .. ").")
 		end
 		
-		-- Do nothing if toBeAddedFolder is nil
-		if toBeChangedFolder == nil then
-			return
-		end
-		
 		-- If 'option' is true, add the folder to main.Configurations.EnemyFolders, otherwise try to remove the value. Will throw a warning if the value cannot be found inside the table.
 		if option == true then
-			table.insert(main.Configurations.EnemyFolders, toBeChangedFolder)
+			table.insert(main.Configurations.EnemyTags, value)
 		elseif option == false then
-			local index = table.find(main.Configurations.EnemyFolders, toBeChangedFolder) -- Tries to find the index the folder is at
+			local index = table.find(main.Configurations.EnemyTags, value) -- Tries to find the index the folder is at
 			
 			if index then -- Remove the folder at the index
-				table.remove(main.Configurations.EnemyFolders, index)
+				table.remove(main.Configurations.EnemyTags, index)
 			else -- If the flolder was not found, throw an warning
-				warn(script:GetFullName() .. ".script.ChangeEnemyTable.Event could not find folder '" .. toBeChangedFolder:GetFullName() .. "' inside main.Configurations.EnemyFolders.")
+				warn(script:GetFullName() .. ".script.ChangeEnemyTable.Event could not find folder '" .. value .. "' inside main.Configurations.EnemyFolders.")
 			end
 		end
 	end)
@@ -455,37 +444,13 @@ if main.Configurations.AllowAdjustableSettings == true then
 	using strings for names. If not every value is a string, the entire search will be thrown out. Any issues with this proccess will throw a warning.
 	]]
 	script.ChangeIgnoreViewTable.Event:Connect(function(option : boolean, value : Folder | table)
-		local toBeChangedFolder : Folder
-		if typeof(value) == "Instance" then
-			toBeChangedFolder = value
-		elseif typeof(value) == "table" then
-			local tempFolder : Instance = nil
-			for i, v in pairs(value) do
-				if type(v) ~= "string" then
-					warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event recieved overload 'value' with a non-string value inside the table.")
-					tempFolder = nil
-					break
-				end
-
-				if i == 1 then
-					tempFolder = workspace:FindFirstChild(v)
-				else
-					tempFolder = tempFolder:FindFirstChild(v)
-				end
-				if tempFolder == nil then
-					warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event tried to find a Folder with name: " .. v .. ". However, it could not be found.")
-					break
-				end
-			end
-
-			toBeChangedFolder = tempFolder
+		if main.Configurations.AllowAdjustableSettings == false then
+			return
+		end
+		
+		if typeof(value) == "string" then
 		else
 			warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event recieved an unusable 'value' overload. Recieved value: ", value, " (with type: " .. typeof(value) .. ").")
-		end
-
-		-- Do nothing if toBeAddedFolder is nil
-		if toBeChangedFolder == nil then
-			return
 		end
 
 		--[[
@@ -493,14 +458,14 @@ if main.Configurations.AllowAdjustableSettings == true then
 		, otherwise try to remove the value. Will throw a warning if the value cannot be found inside the table.
 		]]
 		if option == true then
-			table.insert(main.Configurations.RaycastParams.IgnoreInViewChecking, toBeChangedFolder)
+			table.insert(main.Configurations.RaycastParams.IgnoreInViewChecking, value)
 		elseif option == false then
-			local index = table.find(main.Configurations.RaycastParams.IgnoreInViewChecking, toBeChangedFolder) -- Tries to find the index the folder is at
+			local index = table.find(main.Configurations.RaycastParams.IgnoreInViewChecking, value) -- Tries to find the index the folder is at
 
 			if index then -- Remove the folder at the index
 				table.remove(main.Configurations.RaycastParams.IgnoreInViewChecking, index)
 			else -- If the flolder was not found, throw an warning
-				warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event could not find folder '" .. toBeChangedFolder:GetFullName() .. "' inside main.Configurations.RaycastParams.IgnoreInViewChecking.")
+				warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event could not find folder '" .. value .. "' inside main.Configurations.RaycastParams.IgnoreInViewChecking.")
 			end
 		end
 	end)
@@ -516,9 +481,15 @@ function main:UpdateEnemyTable() : boolean
 		main.EnemyTable = {}
 
 		local success1, no1 = pcall(function()
-			for _, folder : Folder in pairs(main.Configurations.EnemyFolders) do
+			for _, tag : string in pairs(main.Configurations.EnemyTags) do
+				local folder = game:GetService("CollectionService"):GetTagged(tag)
 				local success2, no2 = pcall(function()
-					for _, enemy : Part | Model in pairs(folder:GetChildren()) do
+					for _, enemy : Part | Model in pairs(folder) do
+						-- If the enemy's attribute "Invisible" is true, ignore the enemy
+						if enemy:GetAttribute("Invisible") == true then
+							continue
+						end
+						
 						table.insert(main.EnemyTable, enemy)
 					end
 				end)
@@ -542,6 +513,45 @@ function main:UpdateEnemyTable() : boolean
 end
 
 --[[
+Function used to update main.ViewCheckingIgnoredParts and main.ShootingRaycastIgnoredParts
+]]
+function main:UpdateTables() : boolean
+	local notFailed = true
+	
+	local success, cant = pcall(function()
+		table.clear(main.ShootingRaycastIgnoredParts)
+		
+		for _, tag in pairs(main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents) do
+			table.insert(main.ShootingRaycastIgnoredParts, game:GetService("CollectionService"):GetTagged(tag))
+		end
+	end)
+	
+	if not success then
+		if cant then
+			notFailed = false
+			warn(script:GetFullName() .. ".main:UpdateTables() could not update the main.ShootingRaycastIgnoredParts table. Error: ", cant)
+		end
+	end
+	
+	local success, cant = pcall(function()
+		table.clear(main.ViewCheckingIgnoredParts)
+
+		for _, tag in pairs(main.Configurations.RaycastParams.IgnoreInViewChecking) do
+			table.insert(main.ViewCheckingIgnoredParts, game:GetService("CollectionService"):GetTagged(tag))
+		end
+	end)
+
+	if not success then
+		if cant then
+			notFailed = false
+			warn(script:GetFullName() .. ".main:UpdateTables() could not update the main.ViewCheckingIgnoredParts table. Error: ", cant)
+		end
+	end
+	
+	return notFailed
+end
+
+--[[
 Gets the score of an enemy, used to decide on a target.
 Accepts overloads:
 information : table → The table in CombatInformation.Target.Total<index>
@@ -554,8 +564,10 @@ function main:GetTargetScore(information : table, weaponType : number) : number
 	-- If the weapon is a gun
 	if weaponType == 1 then
 		-- List of all the scores
-		toBeAddedScores.HealthScore = information.Health * main.Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier
-		toBeAddedScores.ThreatLevelScore = information.ThreatLevel * main.Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier
+		toBeAddedScores.HealthScore = main.Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier -
+			(main.Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier/information.Health)
+		toBeAddedScores.ThreatLevelScore = information.ThreatLevel /main.Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier
+		toBeAddedScores.DefenseScore = information.Defense/main.Configurations.WeaponsConfigurations.GunScoreMultipliers.DefenseScoreMultiplier
 		
 		-- Checks if the enemy is within targetting distance, and if not sets the distance multiplier to math.huge
 		if information.Distance > CombatInformation.GunStatistics.Range then
@@ -602,9 +614,9 @@ function main:IdentifyTarget(weaponType : number) : Part
 		
 		-- Randomly chooses if the target will be the favoured target if the target was found
 		if foundTarget == true then
-			local selected = main.RandomNumberGenerator:NextNumber(1, main.Configurations.WeaponsConfigurations.NewTargetChance)
+			local selected = main.RandomNumberGenerator:NextInteger(1, main.Configurations.WeaponsConfigurations.NewTargetChance)
 			
-			if selected <= main.Configurations.WeaponsConfigurations.NewTargetChance then
+			if selected < main.Configurations.WeaponsConfigurations.NewTargetChance then
 				-- Will select a new target
 			else -- Selects the old target
 				return CombatInformation.Target.Favoured
@@ -631,9 +643,15 @@ function main:IdentifyTarget(weaponType : number) : Part
 	-- Fills out the places table based on the scores
 	for i, v in pairs(targetScores) do
 		if v.Score < placesTable[1].score then
+			placesTable[3].enemy = placesTable[2].enemy
+			placesTable[3].score = placesTable[2].score
+			placesTable[2].enemy = placesTable[1].enemy
+			placesTable[2].score = placesTable[1].score
 			placesTable[1].enemy = v.Target
 			placesTable[1].score = v.Score
 		elseif v.Score < placesTable[2].score then
+			placesTable[3].enemy = placesTable[2].enemy
+			placesTable[3].score = placesTable[2].score
 			placesTable[2].enemy = v.Target
 			placesTable[2].score = v.Score
 		elseif v.Score < placesTable[3].score then
@@ -659,6 +677,9 @@ function main:IdentifyTarget(weaponType : number) : Part
 	-- Selects a random target from the the total amount of places filled out
 	local randomlySelected = placesTable[main.RandomNumberGenerator:NextInteger(1, totalSlots)].enemy
 	
+	-- Sets the favoured target to the selected target
+	CombatInformation.Target.Favoured = randomlySelected
+	
 	return randomlySelected
 end
 
@@ -682,6 +703,8 @@ end
 -- This function is used to remove a bullet from the magazine
 function main:DepleteBullet() : nil
 	main.GunStatistics.Magazine -= 1
+	script.Shot:Fire()
+	
 	if main.GunStatistics.Magazine <= 0 then
 		main:Reload()
 	end
@@ -702,6 +725,16 @@ function main:FireGun() : nil
 		return
 	end
 	
+	-- Makes the rig look at the target if the target is far enough away from it's previously tracked position
+	if (target.Position-main.TargetPosition).Magnitude >= main.Configurations.LookDirectionFidelity then
+		main.TargetPosition = target.Position
+		local lookAt = CFrame.lookAt(rig.Head.Position, main.TargetPosition)
+		
+		local _, y, _ = lookAt:ToEulerAnglesXYZ()
+		
+		rig.Head.CFrame = CFrame.new(rig.Head.Position) * CFrame.Angles(0, math.deg(y), 0)
+	end
+	
 	-- Identifies if the gun is a burst gun or not
 	local burstWeapon = false
 	if CombatInformation.GunStatistics.DelayBetweenBurst ~= nil then
@@ -715,7 +748,7 @@ function main:FireGun() : nil
 	local lookAtCFrame = CFrame.lookAt(startingPosition, target.Position)
 	
 	-- Adds in a spread factor to the CFrame.LookAt for where to shoot
-	local function CalculateSpread() : Vector3
+	local function CalculateSpread() : CFrame
 		local spreadX = main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.XSpread, CombatInformation.GunStatistics.XSpread)
 		local spraedY = main.RandomNumberGenerator:NextNumber(-CombatInformation.GunStatistics.YSpread, CombatInformation.GunStatistics.YSpread)
 
@@ -723,7 +756,7 @@ function main:FireGun() : nil
 		local adjustedCFrame = lookAtCFrame * CFrame.Angles(math.rad(spreadX), math.rad(spraedY), 0)
 
 		-- Gets the adjustedCFrame.LookVector and multiplies it by CombatInformation.GunStatistics.Range to get the full distance of the shot
-		local maxDistance = adjustedCFrame.LookVector * CombatInformation.GunStatistics.Range
+		local maxDistance = adjustedCFrame
 		
 		return maxDistance
 	end
@@ -732,7 +765,7 @@ function main:FireGun() : nil
 	if CombatInformation.GunStatistics.TypeOfBullet == 1 then
 		local hitRaycastParams = RaycastParams.new()
 		hitRaycastParams.FilterType = Enum.RaycastFilterType[main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType]
-		hitRaycastParams.FilterDescendantsInstances = {main.Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents, workspace.Rig, VisualisationInformation.VisualisationFolder}
+		hitRaycastParams.FilterDescendantsInstances = {main.ShootingRaycastIgnoredParts, rig, VisualisationInformation.VisualisationFolder}
 		hitRaycastParams.RespectCanCollide = false
 
 		-- If the gun is a burst, shoot CombatInformation.GunStatistics.ShotsPerBurst times
@@ -741,7 +774,7 @@ function main:FireGun() : nil
 			
 			-- If the gun is a shotgun, shoot CombatInformation.GunStatistics.AmountOfShots times
 			for i = 1, CombatInformation.GunStatistics.AmountOfShots, 1 do
-				local rayCast = game.Workspace:Raycast(startingPosition, CalculateSpread(), hitRaycastParams)
+				local rayCast = game.Workspace:Raycast(startingPosition, CalculateSpread().LookVector * CombatInformation.GunStatistics.Range, hitRaycastParams)
 
 				if rayCast then
 					local hitPart = rayCast.Instance
@@ -774,9 +807,27 @@ function main:FireGun() : nil
 						if hitHumanoid == nil then
 							continue
 						end
+						
+						-- Calculates the damage that should be dealt to what was hit
+						local damage = CombatInformation.GunStatistics.Damage
+						local defense = hitPart:GetAttribute("Defense")
+						if defense == nil then
+							if hitPart.Parent:IsA("Model") then
+								defense = hitPart.Parent:GetAttribute("Defense")
+							end
+						end
+						
+						if defense ~= nil then
+							damage = damage - (damage/100*defense)
+							
+							-- Makes sure the bullet doesn't heal the target
+							if damage < 0 then
+								damage = 0
+							end
+						end
 
 						-- Deals damage to the hit part
-						hitHumanoid:TakeDamage(CombatInformation.GunStatistics.Damage)
+						hitHumanoid:TakeDamage(damage)
 					end
 				end
 			end
@@ -786,7 +837,21 @@ function main:FireGun() : nil
 				task.wait(CombatInformation.GunStatistics.DelayBetweenBurst)
 			end
 		end
+		-- Part bullets
+	elseif CombatInformation.GunStatistics.TypeOfBullet == 2 then
+		local bulletInformation = {
+			Damage = CombatInformation.GunStatistics.Damage,
+			Enemy = main.Configurations.EnemyTags,
+			IgnoreTagged = main.Configurations.RaycastParams.IgnoreInViewChecking,
+			MoveTowards = CalculateSpread(),
+			BulletDrop = CombatInformation.GunStatistics.BulletDrop,
+			DistanceTimeOut = CombatInformation.GunStatistics.Range,
+			Speed = CombatInformation.GunStatistics.BulletSpeed,
+		}
+		
 	end
+	
+	main.LastShot = tick() -- Updates main.LastShot
 end
 
 -- Function used to determine what method of fighting to use
@@ -810,6 +875,9 @@ while task.wait() do
 		break
 	end
 	main:CombatDecider()
+	if main:UpdateTables() == false then
+		warn("Failed to update at least one table with main:UpdateTables().")
+	end
 	
 	if main.NulledAdjustableSettings == true and main.Configurations.AllowAdjustableSettings == true then
 		main:SetUpAttributeConfigurations()
