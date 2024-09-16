@@ -1,4 +1,5 @@
 local rig = script.Parent.Parent -- The rig containing the script
+local bulletFolder = workspace.Bullets -- The folder containing bullets
 
 
 
@@ -59,6 +60,7 @@ main.Configurations.WeaponsConfigurations.MeleeAvailable = false -- Whether the 
 main.Configurations.WeaponsConfigurations.GunAvailable = true -- Whether the script will allow shooting
 main.Configurations.WeaponsConfigurations.NewTargetChance = 5 -- Chance to target a new target if the previous target is still visible
 main.Configurations.WeaponsConfigurations.ShootFromLocation = rig.Head -- The part which shooting functions use to shoot from
+main.Configurations.WeaponsConfigurations.MaxBulletCount = 1000 -- Maximum amount of bullets in the bulletFolder at a time
 
 
 
@@ -134,19 +136,21 @@ CombatInformation.Target = {Favoured = nil, Total = {}} --[[ The favoured value 
 The total value is filled with nested tables with information about enemies that can be seen.]]
 CombatInformation.GunStatistics = { -- Table referenced when shooting
 	Damage = 10, -- In HP
-	ShotDelay = 0.05, -- In seconds
-	AmountOfShots = 10, -- In bullets
+	ShotDelay = 0.06, -- In seconds
+	AmountOfShots = 1, -- In bullets
 	ShotsPerBurst = 3, -- In amount of bullets per shot
 	DelayBetweenBurst = nil, -- Leave nil if not in burst
-	Range = 250, -- In studs
-	BulletDrop = 0.1, -- In studs per second, only used when TypeOfBullet type is NOT 1
-	TypeOfBullet = 1, -- 1 : Raycast, 2 : Part
+	Range = 25000, -- In studs
+	BulletDrop = 0.5, -- In studs per second, only used when TypeOfBullet type is NOT 1
+	TypeOfBullet = 2, -- 1 : Raycast, 2 : Part
 	XSpread = 3, -- In degrees, +/-x
 	YSpread = 3, -- In degrees, +/-y
-	BulletSpeed = 100, -- In studs per second, only used if TypeOfBullet is NOT 1
+	BulletSpeed = 1000, -- In studs per second, only used if TypeOfBullet is NOT 1
 	ReloadSpeed = 1, -- In seconds
 	MagazineSize = 150, -- Bullets per magazine
 	ReserveSize = 10000, -- Total bullets that can be shot
+	PierceAmount = 0, -- In amount of parts to pierce, how many parts can be pierced by the bullet, only used if TypeOfBullet is NOT 1
+	PierceFallOffDamage = 1, -- In %, how much damage to take off when piercing a part
 }
 
 
@@ -315,6 +319,7 @@ function VisualisationInformation:VisualiseShootingRaycast(distance : number, st
 	beam.Transparency = 0.5
 	beam.Locked = true
 	beam.Name = "Bullet Tracer"
+	beam:AddTag("Visualiser")
 	beam.Parent = foundFolder
 
 	game:GetService("Debris"):AddItem(beam, CombatInformation.GunStatistics.ShotDelay) -- Destroys the tracer after CombatInformation.GunStatistics.ShotDelay amount of seconds
@@ -603,6 +608,7 @@ function main:IdentifyTarget(weaponType : number) : Part
 			if v.Enemy == CombatInformation.Target.Favoured then
 				if weaponType == 1 then
 					if v.Distance > CombatInformation.GunStatistics.Range then
+						print(v.Enemy:GetFullName() .. " is too far: " .. v.Distance)
 						break
 					end
 				end
@@ -839,16 +845,42 @@ function main:FireGun() : nil
 		end
 		-- Part bullets
 	elseif CombatInformation.GunStatistics.TypeOfBullet == 2 then
-		local bulletInformation = {
-			Damage = CombatInformation.GunStatistics.Damage,
-			Enemy = main.Configurations.EnemyTags,
-			IgnoreTagged = main.Configurations.RaycastParams.IgnoreInViewChecking,
-			MoveTowards = CalculateSpread(),
-			BulletDrop = CombatInformation.GunStatistics.BulletDrop,
-			DistanceTimeOut = CombatInformation.GunStatistics.Range,
-			Speed = CombatInformation.GunStatistics.BulletSpeed,
-		}
+		-- Make sure the game doesn't crash due to total amounts of bullets
+		if #bulletFolder:GetChildren() >= main.Configurations.WeaponsConfigurations.MaxBulletCount then
+			return
+		end
 		
+		local bulletInformation = {}
+		
+		-- If the gun is a burst, shoot CombatInformation.GunStatistics.ShotsPerBurst times
+		for i = 1, (burstWeapon == true) and CombatInformation.GunStatistics.ShotsPerBurst or 1 do
+			main:DepleteBullet() -- Remove a bullet due to shooting
+
+			-- If the gun is a shotgun, shoot CombatInformation.GunStatistics.AmountOfShots times
+			for i = 1, CombatInformation.GunStatistics.AmountOfShots, 1 do
+				bulletInformation = {
+					Damage = CombatInformation.GunStatistics.Damage,
+					Enemy = main.Configurations.EnemyTags,
+					IgnoreTagged = main.Configurations.RaycastParams.IgnoreInViewChecking,
+					MoveTowards = CalculateSpread(),
+					BulletDrop = CombatInformation.GunStatistics.BulletDrop,
+					DistanceTimeOut = CombatInformation.GunStatistics.Range,
+					Speed = CombatInformation.GunStatistics.BulletSpeed,
+					Pierce = CombatInformation.GunStatistics.PierceAmount,
+					PierceDamageLoss = CombatInformation.GunStatistics.PierceFallOffDamage,
+				}
+				
+				-- Create a clone of the bullet, and give it information
+				coroutine.resume(coroutine.create(function()
+					local actor = game:GetService("ServerStorage").Bullet:Clone()
+					local bullet = actor.Bullet
+					bullet.Position = rig.Head.CFrame.Position
+					actor.Parent = bulletFolder
+					task.wait()
+					actor:SendMessage("Inform", bulletInformation)
+				end))
+			end
+		end
 	end
 	
 	main.LastShot = tick() -- Updates main.LastShot
