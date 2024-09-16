@@ -1,3 +1,37 @@
+# 1.0.0 (beta)
+- Major changes:
+  - **Moved to a tag-based system instead of an OOP hierarchy for PathfindingScript and ShootingScript.**
+    - Inside these scripts, the following has changed:
+    - Some variables have been renamed (specifically those that pertain to containing folders).
+    - ShootingScript has a new function "UpdateTables" that is ran on the main thread alongside `main:CombatDecider()`.
+- ShootingScript:
+  - Additions:
+    - New "Shot" BindableEvent.
+      - This event gets fired whenever a bullet gets removed from the magazine. (Subject to change.)
+    - The rig now looks at its target if the target's last recorded position is >= `main.Configurations.LookDirectionFidelity`.
+    - Added `Invisibility` and `Defense` attributes to be considered when targetting.
+      - The `Defense` attribute reduces damage by that percent (i.e., 100 defense = 100% of damage negated, 50% defense = 50% of damage negated, 10% = 10% negated, etc).
+        - Note: Having negative defense increases damage.
+      - The `Invisibility` attribute makes the target impossible to be shot.
+    - New `CombatInformation.GunStatistics.TypeOfBullet`:
+      - This uses a part to detect if it hit something and deal damage.
+      - A lot of new stuff and aditional functionality.
+      - This does mean that raycasting as a bullet type will be put on the burner for the moment as the new type is refined.
+  - Changes:
+    - Enemies without Humanoids are no longer considered "enemies", and therefore will no longer be targeted.
+    - `main.LastShot` is also updated at the end of `main:FireGun()` to more accurately track how long to delay shots.
+    - Changed the scoring system. It now follows this logic:
+      - Higher health = less likely to be shot / Less health = more likely to be shot
+        - Logic: *Score = Multiplier - (Multiplier ÷ Health)*
+      - Higher distance = less likely to be shot / Less distance = more likely to be shot
+        - Logic: *Score = Distance × Multiplier*
+      - Less threatlevel = less likely to be shot / Higher threat level = more likely to be shot
+        - Logic: *Score = ThreatLevel ÷ Multiplier*
+      - Less defense = less likely to be shot / Higher defense = more likely to be shot
+        - Logic: *Score = Defense ÷ Multiplier*
+  - Fixes:
+    - Fixed `main:IdentifyTarget()` never being able to prioritise a favoured target.
+
 # 0.4.0 (Beta)
 - General:
   - Instead of an increasing number, this changelog now follows Semantic Versioning. (Previous changes have also changed to follow Semantic Versioning.)
