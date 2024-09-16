@@ -13,6 +13,10 @@
       - The `Defense` attribute reduces damage by that percent (i.e., 100 defense = 100% of damage negated, 50% defense = 50% of damage negated, 10% = 10% negated, etc).
         - Note: Having negative defense increases damage.
       - The `Invisibility` attribute makes the target impossible to be shot.
+    - New `CombatInformation.GunStatistics.TypeOfBullet`:
+      - This uses a part to detect if it hit something and deal damage.
+      - A lot of new stuff and aditional functionality.
+      - This does mean that raycasting as a bullet type will be put on the burner for the moment as the new type is refined.
   - Changes:
     - Enemies without Humanoids are no longer considered "enemies", and therefore will no longer be targeted.
     - `main.LastShot` is also updated at the end of `main:FireGun()` to more accurately track how long to delay shots.
