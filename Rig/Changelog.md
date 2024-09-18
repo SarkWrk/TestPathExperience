@@ -1,3 +1,10 @@
+# 1.1.0 (beta)
+- PathfindingScript:
+  - New alternative function when seeing an enemy:
+    - The rig will move slower instead of stopping
+- StateManager:
+  - Now handles rig Walkspeed
+  - New attribute `Walkspeed`
 # 1.0.0 (beta)
 - Major changes:
   - **Moved to a tag-based system instead of an OOP hierarchy for PathfindingScript and ShootingScript.**
