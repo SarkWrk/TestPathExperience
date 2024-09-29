@@ -5,6 +5,7 @@
 - StateManager:
   - Now handles rig Walkspeed.
     - New attribute `Walkspeed`
+  - Prevents the rig from falling down (Enum.HumanoidStateType.FallingDown).
 - ShootingScript:
   - Will now cause the rig to look in the direction of the target.
     - *Note: The script uses an AlignOrientation constraint to do this. The constraint is created on spawn under the name "AlignOrientation" and parented to ShootingScript. The Attachment0 of the constraint is named "ViewAlignmentAttachment" and is parented under rig.PrimaryPart*
