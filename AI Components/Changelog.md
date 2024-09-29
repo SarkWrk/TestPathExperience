@@ -7,8 +7,8 @@
 - CombatAI:
   - Changed `self.WeaponInformation.GunStatistics.ShotDelay` from seconds to shots/min.
   - Added difficulty scaling located under: `self.Information.Difficulty`.
-    - Difficulty is clamped as (-inf, 200].
-    - Spread scales with difficulty via the equation: spread/100 * (100 + (100 - difficulty)).
+    - Difficulty is clamped as (-inf, 1000].
+    - Spread scales with difficulty via the equation: spread/100 * (100 + (100 - difficulty/5)).
   - If `self.WeaponInformation.Target.Favoured` is nil, `self.Information.ViewAlignment` will be disabled. (Aka, the rig will not be staring at the last target.)
   - If the script doesn't see an enemy, then `self.WeaponInformation.Target.Favoured` is set to nil.
 - PathfindingAI:
