@@ -1,4 +1,9 @@
-# 0.1.0 (beta)
+# 1.0.0 (beta)
+- **Major Changes**:
+  - AI:
+    - When creating an AI the parameters will be put in a table. (Still the same parameters names.)
+- AI:
+  - New parameter "difficulty".
 - CombatAI:
   - Changed `self.WeaponInformation.GunStatistics.ShotDelay` from seconds to shots/min.
   - Added difficulty scaling located under: `self.Information.Difficulty`.
