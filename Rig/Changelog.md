@@ -1,6 +1,9 @@
 # 2.0.0 (beta)
 - Major changes:
   - **ShootingScript has been made into a class. After this release, all changelogs for it will be moved to the specific folder containing it.**
+  - **PathfindingScript has been made into a class. After this release, all changelogs for it will be moved to the specific folder containing it.**
+  - **A class has been made that contains the functions for PathfindingScript and ShootingScript.**
+  - **PathfindingScript and ShootingScript has been merged into one script. (This is possible due to the fact that they have been abstracted into their own respective classes.)**
 - PathfindingScript:
   - New alternative function when seeing an enemy:
     - The rig will move slower instead of stopping
