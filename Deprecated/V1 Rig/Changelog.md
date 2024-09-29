@@ -1,3 +1,19 @@
+# 2.0.0 (beta)
+- Major changes:
+  - **ShootingScript has been made into a class. After this release, all changelogs for it will be moved to the specific folder containing it.**
+  - **PathfindingScript has been made into a class. After this release, all changelogs for it will be moved to the specific folder containing it.**
+  - **A class has been made that contains the functions for PathfindingScript and ShootingScript.**
+  - **PathfindingScript and ShootingScript has been merged into one script. (This is possible due to the fact that they have been abstracted into their own respective classes.)**
+- PathfindingScript:
+  - New alternative function when seeing an enemy:
+    - The rig will move slower instead of stopping
+- StateManager:
+  - Now handles rig Walkspeed.
+    - New attribute `Walkspeed`
+  - Prevents the rig from falling down (Enum.HumanoidStateType.FallingDown).
+- ShootingScript:
+  - Will now cause the rig to look in the direction of the target.
+    - *Note: The script uses an AlignOrientation constraint to do this. The constraint is created on spawn under the name "AlignOrientation" and parented to ShootingScript. The Attachment0 of the constraint is named "ViewAlignmentAttachment" and is parented under rig.PrimaryPart*
 # 1.0.0 (beta)
 - Major changes:
   - **Moved to a tag-based system instead of an OOP hierarchy for PathfindingScript and ShootingScript.**

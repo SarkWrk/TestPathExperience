@@ -1,5 +1,6 @@
 local rig = script.Parent.Parent -- The parent of the script
 local shootingScript = script.Parent.ShootingScript -- The script used for shooting
+local stateManagerScript = script.Parent.StateManager -- The script used for managing states
 
 
 
@@ -100,6 +101,9 @@ ShootingFunctions = {}
 
 -- Sets up some variables used for the functions in the table
 ShootingFunctions.CanSeeEnemy = false -- Used in ShootingFunctions:Halt()
+ShootingFunctions.ShouldHaltOnSeenEnemy = false -- Whether the programme should halt when seeing an enemy
+ShootingFunctions.WalkspeedReduction = 5 -- How much to reduce walkspeed by if an enemy can be seen
+ShootingFunctions.ReducedWalkspeed = false -- A check to see whether the walkspeed has been reduced due to seeing an enemy
 
 
 
@@ -168,6 +172,7 @@ function VisualisationInformation:PathVisualiser(waypoints : table) : nil -- Ret
 		waypoint.CanCollide = false -- Sets the ability to collide with the node to false
 		waypoint.Anchored = true -- Sets the anchored property of the node to true
 		waypoint.Locked = true -- Sets the locked property of the node to true
+		waypoint:AddTag("Visualiser")
 		waypoint.Parent = foundFolder -- Parents the node to the folder
 	end
 end
@@ -211,6 +216,7 @@ function VisualisationInformation:ChoosenVisualiser(chosenPart : Part) : void
 		circle.CanCollide = false -- Sets the CanCollide property to false
 		circle.Locked = true -- Makes the circle unable to be selected in studio
 		circle.Transparency = 0.5 -- Makes the circle half transparent
+		circle:AddTag("Visualiser")
 		circle.Parent = foundFolder -- Parents the circle to the workspace
 
 		-- Variables used in the following while loop, read more:
@@ -300,6 +306,7 @@ function VisualisationInformation:ChoosenVisualiser(chosenPart : Part) : void
 	connector.Anchored = true -- Sets the Anchored property to true
 	connector.Locked = true -- Sets the part to be unselectable
 	connector.Transparency = 0.5 -- Sets the part's transparency to half
+	connector:AddTag("Visualiser")
 	connector.Parent = foundFolder -- Parents it to the workspace
 	
 	task.wait(VisualisationInformation.HighlightAppearenceWaitTime) -- Halts the programme for an amount of time
@@ -325,12 +332,19 @@ end)
 -- Function used to halt the programme due to the shootingScript
 function ShootingFunctions:Halt() : nil
 	if ShootingFunctions.CanSeeEnemy == true then
-		while ShootingFunctions.CanSeeEnemy == true do
-			if main.Died == true then
-				break
+		if ShootingFunctions.ShouldHaltOnSeenEnemy == false then
+			if ShootingFunctions.ReducedWalkspeed == false then
+				ShootingFunctions.ReducedWalkspeed = true
+				stateManagerScript:SetAttribute("Walkspeed", stateManagerScript:GetAttribute("Walkspeed") - ShootingFunctions.WalkspeedReduction)
 			end
-			
-			task.wait()
+		else
+			while ShootingFunctions.CanSeeEnemy == true do
+				if main.Died == true then
+					break
+				end
+
+				task.wait()
+			end
 		end
 	end
 end
@@ -784,6 +798,13 @@ main.Humanoid.JumpPower = main.PathfindingInformation.JumpHeight
 while task.wait() do
 	if main.Died == true then
 		break
+	end
+	
+	if ShootingFunctions.ShouldHaltOnSeenEnemy == false then
+		if ShootingFunctions.ReducedWalkspeed == true then
+			ShootingFunctions.ReducedWalkspeed = false
+			stateManagerScript:SetAttribute("Walkspeed", stateManagerScript:GetAttribute("Walkspeed") + ShootingFunctions.WalkspeedReduction)
+		end
 	end
 	
 	main:MoveThroughWaypoints()

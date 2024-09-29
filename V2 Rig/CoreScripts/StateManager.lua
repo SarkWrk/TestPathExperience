@@ -1,6 +1,8 @@
 local rig = script.Parent.Parent -- The rig
 local humanoid = rig.Humanoid -- The humanoid
 
+humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) -- Stops the rig from falling down
+
 -- Fires the RigDied BindableEvent when Humanoid.Died fires
 humanoid.Died:Connect(function()
 	-- Tells all other CoreScripts to stop functioning
@@ -26,4 +28,8 @@ humanoid.Died:Connect(function()
 	warn("All scripts have ended.")
 	
 	game:GetService("Debris"):AddItem(rig, 0)
+end)
+
+game:GetService("RunService").Heartbeat:Connect(function()
+	rig.Humanoid.WalkSpeed = script:GetAttribute("Walkspeed")
 end)
