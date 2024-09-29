@@ -3,8 +3,11 @@
   - New alternative function when seeing an enemy:
     - The rig will move slower instead of stopping
 - StateManager:
-  - Now handles rig Walkspeed
-  - New attribute `Walkspeed`
+  - Now handles rig Walkspeed.
+    - New attribute `Walkspeed`
+- ShootingScript:
+  - Will now cause the rig to look in the direction of the target.
+    - *Note: The script uses an AlignOrientation constraint to do this. The constraint is initialised on spawn.*
 # 1.0.0 (beta)
 - Major changes:
   - **Moved to a tag-based system instead of an OOP hierarchy for PathfindingScript and ShootingScript.**
