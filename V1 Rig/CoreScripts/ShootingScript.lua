@@ -12,7 +12,7 @@ main.LastCheckedEnemyPositions = 0 -- Used for main.Configurations.VisualCheckDe
 main.LastUpdatedEnemyTable = 0 -- Used for main.Configurations.EnemyTableUpdateDelay
 main.CanSeeEnemy = false -- If the rig can see an enemy
 main.StopViewChecking = false -- Whether the programme should stop checking if the rig can see an enemy. THIS SHOULD ONLY BE USED IN EMERGENCIES.
-main.RandomNumberGenerator = Random.new()
+main.RandomNumberGenerator = Random.new() -- A random generator that is used instead of calling math.random()
 main.LastShot = 0 -- Used to store the time that the rig last shot a bullet
 main.Died = false
 main.OutOfAmmo = false -- Used to indicate to the script whether it's out of ammo or not
@@ -21,6 +21,9 @@ main.CreatedAdjustableSettings = false -- Used to indicate whether the adjustabl
 main.ShootingRaycastIgnoredParts = {} -- Table of instances that get ignored when shooting via raycasts
 main.ViewCheckingIgnoredParts = {} -- Table of instances that get ignored when viewchecking
 main.TargetPosition = Vector3.new(0,0,0) -- Keeps track of the target position, and if the target's magnitude changes enough, makes the rig look at the target
+main.ViewAlignment = nil -- The constraint modified to make the rig look at a target, LEAVE BLANK
+main.ViewAlignmentAttachment = nil -- The attachment used with main.ViewAlignment, LEAVE BLANK
+main.Frames = 0 -- Total frames elapsed since spawned
 
 
 
@@ -58,7 +61,7 @@ main.Configurations.WeaponsConfigurations = {}
 -- Predefined variables used for weapons
 main.Configurations.WeaponsConfigurations.MeleeAvailable = false -- Whether the script will allow meleeing
 main.Configurations.WeaponsConfigurations.GunAvailable = true -- Whether the script will allow shooting
-main.Configurations.WeaponsConfigurations.NewTargetChance = 5 -- Chance to target a new target if the previous target is still visible
+main.Configurations.WeaponsConfigurations.NewTargetChance = 0 -- Chance to target a new target if the previous target is still visible
 main.Configurations.WeaponsConfigurations.ShootFromLocation = rig.Head -- The part which shooting functions use to shoot from
 main.Configurations.WeaponsConfigurations.MaxBulletCount = 1000 -- Maximum amount of bullets in the bulletFolder at a time
 
@@ -164,6 +167,11 @@ VisualisationInformation.VisualisationFolderName = "ShootingVisualiser" .. main.
 VisualisationInformation.VisualisationFolder = nil
 
 
+
+-- Increments the frame counter
+main.FrameCounter = main.RunService.Stepped:Connect(function()
+	main.Frames += 1
+end)
 
 -- Listens for main.RunService.Heartbeat() before checking if the rig can see an enemy. If the rig can see an enemy then the CanSeeEnemy attribute is set to true, otherwise false.
 main.EnemySightCheck = main.RunService.Heartbeat:Connect(function() : nil
@@ -274,6 +282,47 @@ main.EnemySightCheck = main.RunService.Heartbeat:Connect(function() : nil
 		-- Sets the CanSeeEnemy attribute and main.CanSeeEnemy to whatever hasSeenEnemy is
 		script:SetAttribute("CanSeeEnemy", hasSeenEnemy)
 		main.CanSeeEnemy = hasSeenEnemy
+	end
+end)
+
+-- Makes the rig look at the current CombatInformation.Target.Favoured
+main.SetLookAtCFrame = main.RunService.Heartbeat:Connect(function()
+	if main.Frames % 60 == 0 then
+		local success, e = pcall(function()
+			-- Do nothing if the favoured target is nil
+			if CombatInformation.Target.Favoured == nil then
+				return
+			end
+			
+			-- If no AlignOrientation has been created, create one
+			if main.ViewAlignment == nil then
+				local view = Instance.new("AlignOrientation")
+				local attach = Instance.new("Attachment")
+				attach.Name = "ViewAlignmentAttachment"
+				attach.Parent = rig.PrimaryPart
+				
+				view.Mode = Enum.OrientationAlignmentMode.OneAttachment
+				view.Attachment0 = attach
+				view.RigidityEnabled = true
+				view.Parent = script
+				
+				main.ViewAlignment = view
+			end
+
+			local target : Part = CombatInformation.Target.Favoured
+
+			main.TargetPosition = target.Position
+			
+			local look = CFrame.lookAt(rig.PrimaryPart.CFrame.Position, Vector3.new(target.Position.X, rig.PrimaryPart.CFrame.Y, target.Position.Z)) --[[
+			^^ Creates a CFrame which looks at the target's x and z position, IGNORING IT'S Y POSITION]]
+
+			main.ViewAlignment.CFrame = look
+		end)
+
+		-- If the above errors, warn the error
+		if not success then
+			warn(e)
+		end
 	end
 end)
 
@@ -425,6 +474,7 @@ if main.Configurations.AllowAdjustableSettings == true then
 		if typeof(value) == "string" then
 		else
 			warn(script:GetFullName() .. ".script.ChangeEnemyTable.Event recieved an unusable 'value' overload. Recieved value: ", value, " (with type: " .. typeof(value) .. ").")
+			return
 		end
 		
 		-- If 'option' is true, add the folder to main.Configurations.EnemyFolders, otherwise try to remove the value. Will throw a warning if the value cannot be found inside the table.
@@ -445,10 +495,9 @@ if main.Configurations.AllowAdjustableSettings == true then
 	Adds functionality to change main.Configurations.RaycastParams.IgnoreInViewChecking
 	Accepts overloads:
 	option : boolean → true: add a value to main.Configurations.RaycastParams.IgnoreInViewChecking, false: remove a value from main.Configurations.RaycastParams.IgnoreInViewChecking
-	value : Instance | table → Instance: Adds the instance directly to the folder, table will attempt to find the instance through the workspace hierarchy
-	using strings for names. If not every value is a string, the entire search will be thrown out. Any issues with this proccess will throw a warning.
+	value : string: Adds the string directly to the folder
 	]]
-	script.ChangeIgnoreViewTable.Event:Connect(function(option : boolean, value : Folder | table)
+	script.ChangeIgnoreViewTable.Event:Connect(function(option : boolean, value : string)
 		if main.Configurations.AllowAdjustableSettings == false then
 			return
 		end
@@ -456,6 +505,7 @@ if main.Configurations.AllowAdjustableSettings == true then
 		if typeof(value) == "string" then
 		else
 			warn(script:GetFullName() .. ".script.ChangeIgnoreViewTable.Event recieved an unusable 'value' overload. Recieved value: ", value, " (with type: " .. typeof(value) .. ").")
+			return
 		end
 
 		--[[
@@ -731,16 +781,6 @@ function main:FireGun() : nil
 		return
 	end
 	
-	-- Makes the rig look at the target if the target is far enough away from it's previously tracked position
-	if (target.Position-main.TargetPosition).Magnitude >= main.Configurations.LookDirectionFidelity then
-		main.TargetPosition = target.Position
-		local lookAt = CFrame.lookAt(rig.Head.Position, main.TargetPosition)
-		
-		local _, y, _ = lookAt:ToEulerAnglesXYZ()
-		
-		rig.Head.CFrame = CFrame.new(rig.Head.Position) * CFrame.Angles(0, math.deg(y), 0)
-	end
-	
 	-- Identifies if the gun is a burst gun or not
 	local burstWeapon = false
 	if CombatInformation.GunStatistics.DelayBetweenBurst ~= nil then
@@ -873,8 +913,7 @@ function main:FireGun() : nil
 				-- Create a clone of the bullet, and give it information
 				coroutine.resume(coroutine.create(function()
 					local actor = game:GetService("ServerStorage").Bullet:Clone()
-					local bullet = actor.Bullet
-					bullet.Position = rig.Head.CFrame.Position
+					actor.Bullet.Position = rig.Head.CFrame.Position
 					actor.Parent = bulletFolder
 					task.wait()
 					actor:SendMessage("Inform", bulletInformation)
@@ -931,5 +970,6 @@ end
 
 main.UpdateEnemyTableListener:Disconnect()
 main.EnemySightCheck:Disconnect()
+main.FrameCounter:Disconnect()
 
 script:SetAttribute("Shutoff", true) -- Publicises that the script is fully shut off and won't continue
