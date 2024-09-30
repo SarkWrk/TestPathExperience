@@ -6,9 +6,12 @@
   - New parameter "difficulty".
 - CombatAI:
   - Changed `self.WeaponInformation.GunStatistics.ShotDelay` from seconds to shots/min.
+  - Added the ability to throw grenades.
   - Added difficulty scaling located under: `self.Information.Difficulty`.
     - Difficulty is clamped as (-inf, 1000].
-    - Spread scales with difficulty via the equation: spread/100 * (100 + (100 - difficulty/5)).
+    - Spread scales via the equation: spread/100 * (100 + (100 - difficulty/5)).
+    - Grenade throw cooldown scales via the equation: cooldown - difficulty/0.0015.
+    - Maximum grenades scales via: inf-1000 difficulty → 10, 999-750 difficulty → 7, 749-500 difficulty → 5, 499-250 difficulty → 2, 249-100 difficulty → 1, 99- -inf difficulty → 0
   - If `self.WeaponInformation.Target.Favoured` is nil, `self.Information.ViewAlignment` will be disabled. (Aka, the rig will not be staring at the last target.)
   - If the script doesn't see an enemy, then `self.WeaponInformation.Target.Favoured` is set to nil.
 - PathfindingAI:
