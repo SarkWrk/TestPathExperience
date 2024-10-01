@@ -2,6 +2,8 @@
 - **Major Changes**:
   - AI:
     - When creating an AI the parameters will be put in a table. (Still the same parameters names.)
+  - CombatAI:
+    - Now calls on a module script that contains a class for shooting bullets.
 - AI:
   - New parameter "difficulty".
 - CombatAI:
