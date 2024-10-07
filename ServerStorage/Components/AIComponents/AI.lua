@@ -3,53 +3,44 @@ class.interface = {}
 class.schema = {}
 class.metatable = {__index = class.schema}
 
-function class.interface.New(info : {
-	owner : Script, rig : Model, diedEvent : BindableEvent, locationToShootFrom : string, firedEvent : BindableEvent, difficulty : number, shootingScript : Script, stateManagerScript : Script,
-	weaponInformation : {
-		Gun : {
-			TypeOfBullet : number, Damage : number, ShotDelay : number, AmountOfShots : number, ShotsPerBurst : number?, DelayBetweenBurst : number?, Range : number, BulletDrop : number, XSpread : number, YSpread : number, BulletSpeed : number, ReloadSpeed : number, MagazineSize : number, ReserveSize : number, PierceAmount : number, PierceFallOffDamage : number},
-		Utility : {
-			CanUseGrenade : boolean, GrenadeUseDelay : number,
-			GrenadeStatistics : {
-				Damage : number, Range : number, FallOffDueToDistance : number, FallOffDueToObjects : number, Timer : number, Instances : {}}?},},
-	combatInformation : {
-		Configurations : {
-			AllowAdjustableSettings : boolean, VisualCheckDelay : number, RaycastStart : string, EnemyTableUpdateDelay : number, ViewDistance : number, ViewRadius : number, EnemyTags : {},
-			WeaponConfigurations : {
-				MeleeAvailable : boolean, GunAvailable : boolean, NewTargetChance : number,
-				GunScoreMultipliers : {
-					DistanceScoreMultiplier : number, HealthScoreMultiplier : number, ThreatLevelScoreMultiplier : number, DefenseScoreMultiplier : number},
-				ShootingRaycastParams : {
-					FilterType : string, FilterDecendents : {}},},
-			["RaycastParams"] : {
-				FilterType : string, RespectCanCollide : boolean, IgnoreInViewChecking : {}},
-			Attributes : {},},},
-	pathfindingInformation : {
-		PathfindingInformation : {
-			Goals : {}, AgentRadius : number, AgentHeight : number, WaypointSpacing : number, LabelCosts : {}, JumpHeight : number, MoveSpeed : number, BannedFolders : {Instances}, SkipClosestChance : number, RecheckPossibleTargets : number, Failureinformation : {
-				ExhaustTime : number, RecalculatePath : boolean, ForcePathfinding : boolean}},
-		VisualisationInformation : {
-			VisualisePath : boolean, VisualisationSpacing : number, NormalNodeSize : number, JumpNodeSizeMultiplier : number, CustomNodeSizeMultiplier : number, VisualiseChoosing : boolean, ShowChoosingCircle : boolean, ChoosingCircleExpansionDelay : number, HeightAppearenceWaitTime : number}?,
-		ShootingFunctions : {
-			ShouldHaltOnSeenenemy : boolean, WalkspeedReduction : number, GrenadeAvoidanceRange : number},
-	},})
+local types = require(game:GetService("ServerStorage"):WaitForChild("Types"))
+
+function class.interface.New(info : types.AIConfigurations)
 	local self = setmetatable({}, class.metatable)
 	self.Combat = require(script.Parent:WaitForChild("CombatAI")).interface.New(info.owner, info.rig, info.combatInformation, info.diedEvent, info.locationToShootFrom, info.weaponInformation, info.firedEvent, info.difficulty)
-	self.Pathfinding = require(script.Parent:WaitForChild("PathfindingAI")).interface.New(info.owner, info.rig, info.pathfindingInformation, info.shootingScript, info.diedEvent, info.stateManagerScript)
+	self.Pathfinding = require(script.Parent:WaitForChild("PathfindingAI")).interface.New(info.owner, info.rig, info.pathfindingInformation, info.combatScript, info.diedEvent, info.stateManagerScript)
 	
-	coroutine.resume(coroutine.create(function()
-		self.Shutoff(self, info.owner)
-	end))
+	self.Shutoff(self, info.combatScript, info.pathfindingScript, info.owner)
 	
 	return self
 end
 
-function class.schema.Shutoff(self : BaseAI, owner : Script)
-	while self.Combat.Shutoff == false and self.Pathfinding.Shutoff == false do
-		task.wait()
+function class.schema.Shutoff(self : BaseAI, pathfindScript : Script, combatScript : Script, owner : Script)
+	if owner == pathfindScript and owner == combatScript then
+		coroutine.resume(coroutine.create(function()
+			while self.Combat.Shutoff == false and self.Pathfinding.Shutoff == false do
+				task.wait()
+			end
+
+			owner:SetAttribute("Shutoff", true)
+		end))
+	else
+		coroutine.resume(coroutine.create(function()
+			while self.Combat.Shutoff == false do
+				task.wait()
+			end
+
+			combatScript:SetAttribute("Shutoff", true)
+		end))
+
+		coroutine.resume(coroutine.create(function()
+			while self.Pathfinding.Shutoff == false do
+				task.wait()
+			end
+
+			pathfindScript:SetAttribute("Shutoff", true)
+		end))
 	end
-	
-	owner:SetAttribute("Shutoff", true)
 end
 
 function class.schema.CleanUp(self : BaseAI)
