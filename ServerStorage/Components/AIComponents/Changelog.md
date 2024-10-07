@@ -1,0 +1,31 @@
+# 1.0.0 (beta)
+- **Major Changes**:
+  - **ALL CONFIGURATIONS ARE NOW PASSED TO AI, CONFIGURATIONS ARE NO LONGER DEFINED IN THEIR REPSECTIVE SCRIPTS**
+    - Table configurations have been commented out so that their information is still available, but the table is now set to the equivilant in the configuration table passed to AI.
+  - AI:
+    - When creating an AI the parameters will be put in a table. (Still the same parameters names.)
+  - CombatAI:
+    - Now calls on a module script that contains a class for shooting bullets.
+- AI:
+  - New parameter "difficulty".
+  - Now checks if CombatAI and PathfindingAI have both shutoff, and then sets 
+- CombatAI:
+  - Changed `self.WeaponInformation.GunStatistics.ShotDelay` from seconds to shots/min.
+  - Added the ability to throw grenades.
+  - Added difficulty scaling located under: `self.Information.Difficulty`.
+    - Difficulty is clamped as (-inf, 1000].
+    - Spread scales via the equation: spread/100 * (100 + (100 - difficulty/5)).
+    - Grenade throw cooldown scales via the equation: cooldown - difficulty/0.0015.
+    - Maximum grenades scales via: inf-1000 difficulty → 10, 999-750 difficulty → 7, 749-500 difficulty → 5, 499-250 difficulty → 2, 249-100 difficulty → 1, 99- -inf difficulty → 0
+  - If `self.WeaponInformation.Target.Favoured` is nil, `self.Information.ViewAlignment` will be disabled. (Aka, the rig will not be staring at the last target.)
+  - If the script doesn't see an enemy, then `self.WeaponInformation.Target.Favoured` is set to nil.
+  - Fixed a bug where if the rig died, any instances created by the script would remain.
+  - Fixed a bug where if the script ran its shutoff function, it would set `self.ImportantInformation.script`'s attribute to `true`, even if PathfindingAI still hasn't shutoff.
+- PathfindingAI:
+  - Fixed a bug where `self.ImportantInformation.stateManagerScript<Walkspeed>` would not get reset when the rig could no longer see an enemy.
+  - Fixed a bug where if the script ran its shutoff function, it would set `self.ImportantInformation.script`'s attribute to `true`, even if CombatAI still hasn't shutoff.
+  - Will try to avoid the closest grenade within `self.Shootingfunctions.GrenadeAvoidanceRange`.
+    - After the grenade is `self.Shootingfunctions.GrenadeAvoidanceRange` studs away, will recalculate a forced path to the target.
+- \+ More things that I probably forgot about.
+# 0.0.0 (beta)
+- Initial launch!

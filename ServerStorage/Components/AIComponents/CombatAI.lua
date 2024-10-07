@@ -4,56 +4,54 @@ class.schema = {}
 class.metatable = {__index = class.schema}
 class.schema.Setup = {}
 
-function class.interface.New(owner : script, rig : Model, diedEvent : BindableEvent, locationToShootFrom : Part, weaponInformation : table, firedBindableEvent : BindableEvent)
-	local self = setmetatable({}, class.metatable)
+function class.interface.New(owner : script, rig : Model, combatInformation : {}, diedEvent : BindableEvent, locationToShootFrom : Part, weaponInformation : {Gun : {}, Utility : {}}, firedBindableEvent : BindableEvent, difficulty : number) : BaseCombatAI
+	local CombatAI = setmetatable({}, class.metatable)
 
-	self.Information = class.schema.Setup.NewBase(locationToShootFrom, firedBindableEvent)
-	self.WeaponInformation = class.schema.Setup.CreateWeaponInformation(weaponInformation)
-	self.VisualisationInformation = class.schema.Setup.CreateVisualisationInformation(self.Information.RandomNumberGenerator)
-	self.RBXScriptConnections = {}
-	self.ImportantInformation = {
+	CombatAI.Information = class.schema.Setup.NewBase(locationToShootFrom, firedBindableEvent, difficulty, combatInformation.Configurations)
+	CombatAI.WeaponInformation = class.schema.Setup.CreateWeaponInformation(weaponInformation)
+	CombatAI.VisualisationInformation = class.schema.Setup.CreateVisualisationInformation(CombatAI.Information.RandomNumberGenerator)
+	CombatAI.RBXScriptConnections = {}
+	CombatAI.ImportantInformation = {
 		["rig"] = rig,
-		["bulletFolder"] = workspace.Bullets,
 		["script"] = owner,
 	}
+	
+	CombatAI.Information.Difficulty = math.clamp(CombatAI.Information.Difficulty, -math.huge, 1000) -- Clamp's difficulty to max 1000
+	CombatAI.ActiveParts = {}
+	CombatAI.Shutoff = false
 
 	diedEvent.Event:Connect(function()
-		self.Information.Died = true
-		self.Information.StopViewChecking = true
+		CombatAI.Information.Died = true
+		CombatAI.Information.StopViewChecking = true
 		
-		self.CleanUp(self)
-	end)
-
-	-- Increments the frame counter
-	self.RBXScriptConnections.FrameCounter = self.Information.RunService.Stepped:Connect(function()
-		self.Information.Frames += 1
+		CombatAI.CleanUp(CombatAI)
 	end)
 
 	-- Listens for self.Information.RunService.Heartbeat() before checking if the rig can see an enemy. If the rig can see an enemy then the CanSeeEnemy attribute is set to true, otherwise false.
-	self.RBXScriptConnections.EnemySightCheck = self.Information.RunService.Heartbeat:Connect(function() : nil
+	CombatAI.RBXScriptConnections.EnemySightCheck = CombatAI.Information.RunService.Heartbeat:Connect(function() : nil
 		-- Checks if the rig is out of ammo, and if so will not stop the rig from pathfinding anymore because the rig can't shoot
-		if self.Information.OutOfAmmo == true then
-			self.Information.StopViewChecking = true
+		if CombatAI.Information.OutOfAmmo == true then
+			CombatAI.Information.StopViewChecking = true
 		end
 
 		-- Checks if self.Information.StopViewChecking is set to true. If it is, it returns
-		if self.Information.StopViewChecking == true then
-			self.Information.EnemySightCheck:Disconnect() -- Disconnects the RBXScriptConnection
+		if CombatAI.Information.StopViewChecking == true then
+			CombatAI.RBXScriptConnections.EnemySightCheck:Disconnect() -- Disconnects the RBXScriptConnection
 			return
 		end
 
 		-- Checks if self.Information.EnemyTable is empty or not. If it is, it returns
-		if table.maxn(self.Information.EnemyTable) == 0 then
-			print(self.ImportantInformation.script:GetFullName() .. ".Information.EnemyTable is empty.")
+		if table.maxn(CombatAI.Information.EnemyTable) == 0 then
+			print(CombatAI.ImportantInformation.script:GetFullName() .. ".Information.EnemyTable is empty.")
 			return
 		end
 
-		if tick()-self.Information.LastCheckedEnemyPositions >= self.Information.Configurations.VisualCheckDelay then
+		if tick()-CombatAI.Information.LastCheckedEnemyPositions >= CombatAI.Information.Configurations.VisualCheckDelay then
 			local hasSeenEnemy = false -- Tracks to see if the rig has seen an enemy
 
-			self.WeaponInformation.Target.Total = {} -- Reset the self.WeaponInformation.Target.Total table
+			CombatAI.WeaponInformation.Target.Total = {} -- Reset the self.WeaponInformation.Target.Total table
 
-			for _, enemy : Part | Model in pairs(self.Information.EnemyTable) do
+			for _, enemy : Part | Model in pairs(CombatAI.Information.EnemyTable) do
 				local endPart : Part
 
 				-- Gets the part to raycast to via Model.PrimaryPart, or the part itself. If there is no part, then returns
@@ -66,15 +64,16 @@ function class.interface.New(owner : script, rig : Model, diedEvent : BindableEv
 				end
 
 				-- Gets the part on the rig to raycast from
-				local startPart : Part = rig:FindFirstChild(self.Information.Configurations.RaycastStart)
+				local startPart : Part = rig:FindFirstChild(CombatAI.Information.Configurations.RaycastStart)
 
 				if startPart == nil then
-					if self.Information.Configurations.AllowAdjustableSettings == true and table.find(self.Information.Configurations.Attributes, "RaycastStart") then
-						warn(self.ImportantInformation.script:GetFullName() .. ".Information.RunService.Heartbeat could not identify a part to start the raycast at. The start part can be changed.")
+					if CombatAI.Information.Configurations.AllowAdjustableSettings == true and table.find(CombatAI.Information.Configurations.Attributes, "RaycastStart") then
+						warn(CombatAI.ImportantInformation.script:GetFullName() .. ".Information.RunService.Heartbeat could not identify a part to start the raycast at. The start part can be changed.")
 					else
-						self.Information.StopViewChecking = true
-						error(self.ImportantInformation.script:GetFullName() .. ".Information.RunService.Heartbeat could not identify a part to start the raycast at. The start part can not be changed.")
+						CombatAI.Information.StopViewChecking = true
+						error(CombatAI.ImportantInformation.script:GetFullName() .. ".Information.RunService.Heartbeat could not identify a part to start the raycast at. The start part can not be changed.")
 					end
+					
 					return
 				end			
 
@@ -85,21 +84,21 @@ function class.interface.New(owner : script, rig : Model, diedEvent : BindableEv
 
 				-- Creates a new CFrame that looks in the direction of the enemy and sets the view distance using self.Information.Configurations.ViewDistance
 				local newView = CFrame.lookAt(startPart.Position, endPart.Position)
-				local viewDirection = newView.LookVector * self.Information.Configurations.ViewDistance
+				local viewDirection = newView.LookVector * CombatAI.Information.Configurations.ViewDistance
 
 				-- Compared the viewDirection Y orientation and start part Y orientation so check whether the rig can see the enemy using self.Information.Configurations.ViewRadius, if not: returns
 				local _, startYOrientation, _ = startPart.CFrame:ToEulerAnglesXYZ()
 				local _, endYOrientation, _ = newView:ToOrientation()
 
-				if math.abs(math.deg(startYOrientation) - math.deg(endYOrientation)) <= self.Information.Configurations.ViewRadius then
+				if math.abs(math.deg(startYOrientation) - math.deg(endYOrientation)) <= CombatAI.Information.Configurations.ViewRadius then
 					continue
 				end
 
 				-- Sets up the RaycastParams for the raycast
 				local rayCastParams = RaycastParams.new()
-				rayCastParams.FilterType = Enum.RaycastFilterType[self.Information.Configurations.RaycastParams.FilterType]
-				rayCastParams.RespectCanCollide = self.Information.Configurations.RaycastParams.RespectCanCollide
-				rayCastParams.FilterDescendantsInstances = {self.Information.ViewCheckingIgnoredParts, self.VisualisationInformation.VisualisationFolder}
+				rayCastParams.FilterType = Enum.RaycastFilterType[CombatAI.Information.Configurations.RaycastParams.FilterType]
+				rayCastParams.RespectCanCollide = CombatAI.Information.Configurations.RaycastParams.RespectCanCollide
+				rayCastParams.FilterDescendantsInstances = {CombatAI.Information.ViewCheckingIgnoredParts, CombatAI.VisualisationInformation.VisualisationFolder}
 
 				-- At this point, the programme has identified the end part and the start part to raycast to
 				local raycast = game.Workspace:Raycast(startPart.Position, viewDirection, rayCastParams)
@@ -128,7 +127,7 @@ function class.interface.New(owner : script, rig : Model, diedEvent : BindableEv
 									continue
 								end
 
-								table.insert(self.WeaponInformation.Target.Total, storedInformation) -- Adds the endPart to the target list for shooting
+								table.insert(CombatAI.WeaponInformation.Target.Total, storedInformation) -- Adds the endPart to the target list for shooting
 
 								hasSeenEnemy = true
 							end
@@ -138,22 +137,21 @@ function class.interface.New(owner : script, rig : Model, diedEvent : BindableEv
 			end
 
 			-- Sets the CanSeeEnemy attribute and self.Information.CanSeeEnemy to whatever hasSeenEnemy is
-			self.ImportantInformation.script:SetAttribute("CanSeeEnemy", hasSeenEnemy)
-			self.Information.CanSeeEnemy = hasSeenEnemy
+			CombatAI.ImportantInformation.script:SetAttribute("CanSeeEnemy", hasSeenEnemy)
+			CombatAI.Information.CanSeeEnemy = hasSeenEnemy
+			
+			if hasSeenEnemy == false then
+				CombatAI.WeaponInformation.Target.Favoured = nil
+			end
 		end
 	end)
 
 	-- Makes the rig look at the current self.WeaponInformation.Target.Favoured
-	self.RBXScriptConnections.SetLookAtCFrame = self.Information.RunService.Heartbeat:Connect(function()
-		if self.Information.Frames % 60 == 0 then
+	CombatAI.RBXScriptConnections.SetLookAtCFrame = CombatAI.Information.RunService.Heartbeat:Connect(function(dt)
+		if CombatAI.Information.TimeElaspedSinceLastViewAlign + dt >= 0.1 then
 			local success, e = pcall(function()
-				-- Do nothing if the favoured target is nil
-				if self.WeaponInformation.Target.Favoured == nil then
-					return
-				end
-
 				-- If no AlignOrientation has been created, create one
-				if self.Information.ViewAlignment == nil then
+				if CombatAI.Information.ViewAlignment == nil then
 					local view = Instance.new("AlignOrientation")
 					local attach = Instance.new("Attachment")
 					attach.Name = "ViewAlignmentAttachment"
@@ -164,108 +162,123 @@ function class.interface.New(owner : script, rig : Model, diedEvent : BindableEv
 					view.RigidityEnabled = true
 					view.Parent = owner
 
-					self.Information.ViewAlignment = view
+					CombatAI.Information.ViewAlignment = view
+				end
+				
+				-- Do nothing if the favoured target is nil
+				if CombatAI.WeaponInformation.Target.Favoured == nil then
+					CombatAI.Information.ViewAlignment.Enabled = false
+					return
 				end
 
-				local target : Part = self.WeaponInformation.Target.Favoured
+				CombatAI.Information.ViewAlignment.Enabled = true
 
-				self.Information.TargetPosition = target.Position
+				local target : Part = CombatAI.WeaponInformation.Target.Favoured
+
+				CombatAI.Information.TargetPosition = target.Position
 
 				local look = CFrame.lookAt(rig.PrimaryPart.CFrame.Position, Vector3.new(target.Position.X, rig.PrimaryPart.CFrame.Y, target.Position.Z)) --[[
 				^^ Creates a CFrame which looks at the target's x and z position, IGNORING IT'S Y POSITION]]
 
-				self.Information.ViewAlignment.CFrame = look
+				CombatAI.Information.ViewAlignment.CFrame = look
 			end)
 
 			-- If the above errors, warn the error
 			if not success then
 				warn(e)
 			end
+		else
+			CombatAI.Information.TimeElaspedSinceLastViewAlign += dt
 		end
 	end)
 
 	-- Update the enemy table
-	self.RBXScriptConnections.UpdateEnemyTableListener = self.Information.RunService.Heartbeat:Connect(function()
-		self.UpdateEnemyTable(self)
+	CombatAI.RBXScriptConnections.UpdateEnemyTableListener = CombatAI.Information.RunService.Heartbeat:Connect(function(dt)
+		if CombatAI.Information.TimeElaspedSinceLastUpdatedEnemyTable + dt >= 0.05 then
+			CombatAI.UpdateEnemyTable(CombatAI)
+		else
+			CombatAI.Information.TimeElaspedSinceLastUpdatedEnemyTable += dt
+		end
 	end)
 
-	self.CloneGunStatistics(self)
-	self.AdjustableSettings(self)
+	CombatAI.CloneGunStatistics(CombatAI)
+	CombatAI.AdjustableSettings(CombatAI)
 
-	return self
+	return CombatAI
 end
 
-function class.schema.Setup.CreateConfigurations(location : Part)
+function class.schema.Setup.CreateConfigurations(location : Part, info : {AllowAdjustableSettings : boolean, VisualCheckDelay : number, RaycastStart : string, EnemyTableUpdateDelay : number, ViewDistance : number, ViewRadius : number, EnemyTags : {}, WeaponConfigurations : {MeleeAvailable : boolean, GunAvailable : boolean, NewTargetChance : number, GunScoreMultipliers : {DistanceScoreMultiplier : number, HealthScoreMultiplier : number, ThreatLevelScoreMultiplier : number, DefenseScoreMultiplier : number}, ShootingRaycastParams : {FilterType : string, FilterDecendents : {}},}, ["RaycastParams"] : {FilterType : string, RespectCanCollide : boolean, IgnoreInViewChecking : {}}, Attributes : {}})
 	-- Sets up the configuration table
 	local Configurations = {}
 
 
 
-	-- Predefines some information in Base.Configuration
-	Configurations.AllowAdjustableSettings = true -- Whether to allow other scripts to change configuration settings in the script via attribute changes
-	Configurations.VisualCheckDelay = 0.1 -- Used to delay times between raycasting, in seconds
-	Configurations.RaycastStart = "Head" -- A string identifier for the part used to check from. Must be a child of the rig
-	Configurations.EnemyTableUpdateDelay = 0.1 -- Used to decide how often to update Base.EnemyTable, in seconds
-	Configurations.ViewDistance = 100 -- How far the rig can see, in studs
-	Configurations.ViewRadius = 30 -- FOV of the rig, in +/-x, therefore: FOV is double what is set
-	Configurations.EnemyTags = { --[[
-Table to store enemies that are tagged.
-Can be added and removed from via script.ChangeEnemyTable if Base.Configurations.AllowAdjustableSettings is set to true.
-Information on how to add/remove folders will be in the listener event function.
-]]
-		"Goal",
-	}
-	Configurations.LookDirectionFidelity = 5 -- If the .magnitude of the target's position compared to it's previous position has changed >=x, makes the rig look at the target
+	-- Predefines some information in Information.Configuration
+	Configurations.AllowAdjustableSettings = info.AllowAdjustableSettings -- Whether to allow other scripts to change configuration settings in the script via attribute changes
+	Configurations.VisualCheckDelay = info.VisualCheckDelay -- Used to delay times between raycasting, in seconds
+	Configurations.RaycastStart = info.RaycastStart -- A string identifier for the part used to check from. Must be a child of the rig
+	Configurations.EnemyTableUpdateDelay = info.EnemyTableUpdateDelay -- Used to decide how often to update Base.EnemyTable, in seconds
+	Configurations.ViewDistance = info.ViewDistance -- How far the rig can see, in studs
+	Configurations.ViewRadius = info.ViewRadius -- FOV of the rig, in +/-x, therefore: FOV is double what is set
+	Configurations.EnemyTags = info.EnemyTags
+--	Configurations.EnemyTags = { --[[
+--Table to store enemies that are tagged.
+--Can be added and removed from via script.ChangeEnemyTable if Base.Configurations.AllowAdjustableSettings is set to true.
+--Information on how to add/remove folders will be in the listener event function.
+--]]
+--		"Goal",
+--	}
 
 
 
 	-- Table used to store configuations for self.WeaponInformation
-	Configurations.WeaponsConfigurations = {}
+	Configurations.WeaponsConfigurations = info.WeaponConfigurations
 
-	-- Predefined variables used for weapons
-	Configurations.WeaponsConfigurations.MeleeAvailable = false -- Whether the script will allow meleeing
-	Configurations.WeaponsConfigurations.GunAvailable = true -- Whether the script will allow shooting
-	Configurations.WeaponsConfigurations.NewTargetChance = 0 -- Chance to target a new target if the previous target is still visible
+	---- Predefined variables used for weapons
+	--Configurations.WeaponsConfigurations.MeleeAvailable = false -- Whether the script will allow meleeing
+	--Configurations.WeaponsConfigurations.GunAvailable = true -- Whether the script will allow shooting
+	--Configurations.WeaponsConfigurations.NewTargetChance = 0 -- Chance to target a new target if the previous target is still visible
 	Configurations.WeaponsConfigurations.ShootFromLocation = location -- The part which shooting functions use to shoot from
-	Configurations.WeaponsConfigurations.MaxBulletCount = 1000 -- Maximum amount of bullets in the bulletFolder at a time
 
 
 
 	-- Table to store all the score multipliers for targetting with a gun
-	Configurations.WeaponsConfigurations.GunScoreMultipliers = {}
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers = {}
 
-	-- The score multipliers
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.DistanceScoreMultiplier = 1 -- How much to multiply the distance the target is by x
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier = 2 -- How much to multiply the health of the target by x
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier = 3  -- How much to multiply the threat level of the target by x
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.DefenseScoreMultiplier = 10  -- How much to multiply the defense of the target by x
+	---- The score multipliers
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.DistanceScoreMultiplier = 1 -- How much to multiply the distance the target is by x
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier = 2 -- How much to multiply the health of the target by x
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier = 3  -- How much to multiply the threat level of the target by x
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.DefenseScoreMultiplier = 10  -- How much to multiply the defense of the target by x
 
 
 
 	-- Sets up a table that stores the parameters for a RaycastParams.new() used in the "Raycast" bullet type
-	Configurations.WeaponsConfigurations.ShootingRaycastParams = {}
+	--Configurations.WeaponsConfigurations.ShootingRaycastParams = {}
 
 	-- Defines the variables
-	Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType = "Exclude"
-	Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of tags to get filtered in/out by the raycast
-		"NPC",
-		"Bullet",
-	}
+	--Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType = "Exclude"
+	--Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of tags to get filtered in/out by the raycast
+	--	"AI",
+	--	"Bullet",
+	--	"Enemy Utilities",
+	--}
 
 	-- Table to store configurations for the RaycastParams for the viewcheck raycast
-	Configurations.RaycastParams = {}
+	Configurations.RaycastParams = info.RaycastParams
 
 	-- Predefined variables inside Base.Configurations.RaycastParams
-	Configurations.RaycastParams.FilterType = "Exclude" -- Case specific
-	Configurations.RaycastParams.RespectCanCollide = false
-	Configurations.RaycastParams.IgnoreInViewChecking = { --[[
-Table used to store tagged parts that the rig should ignore when checking if it can see an enemy.
-Can be added and removed from via script.ChangeIgnoreViewTable if Base.Configurations.AllowAdjustableSettings is set to true.
-Information on how to add/remove parts will be in the listener event function.
-]]
-		"NPC",
-		"Bullet",
-	}
+--	Configurations.RaycastParams.FilterType = "Exclude" -- Case specific
+--	Configurations.RaycastParams.RespectCanCollide = false
+--	Configurations.RaycastParams.IgnoreInViewChecking = { --[[
+--Table used to store tagged parts that the rig should ignore when checking if it can see an enemy.
+--Can be added and removed from via script.ChangeIgnoreViewTable if Base.Configurations.AllowAdjustableSettings is set to true.
+--Information on how to add/remove parts will be in the listener event function.
+--]]
+--		"AI",
+--		"Bullet",
+--		"Enemy Utilities",
+--	}
 
 
 
@@ -291,7 +304,7 @@ Use "/" to denote a subfolder.
 	return Configurations
 end
 
-function class.schema.Setup.NewBase(shootFromLocation : Part, firedBindableEvent : BindableEvent)
+function class.schema.Setup.NewBase(shootFromLocation : Part, firedBindableEvent : BindableEvent, difficulty : number, info : {})
 	local Base = {}
 	
 	Base.RunService = game:GetService("RunService")
@@ -310,8 +323,11 @@ function class.schema.Setup.NewBase(shootFromLocation : Part, firedBindableEvent
 	Base.TargetPosition = Vector3.new(0,0,0) -- Keeps track of the target position, and if the target's magnitude changes enough, makes the rig look at the target
 	Base.ViewAlignment = nil -- The constrBasent modified to make the rig look at a target, LEAVE BLANK
 	Base.ViewAlignmentAttachment = nil -- The attachment used with Base.ViewAlignment, LEAVE BLANK
-	Base.Frames = 0 -- Total frames elapsed since spawned
-	Base.FiredBindableEvent = firedBindableEvent -- The BindablEvent that gets fired when shooting 
+	Base.TimeElaspedSinceLastViewAlign = math.huge -- Time that's passed since the last time that the view has been aligned with the target
+	Base.TimeElaspedSinceLastUpdatedEnemyTable = math.huge -- Time that's passed since the last time that the enemy table has been updated
+	Base.FiredBindableEvent = firedBindableEvent -- The BindablEvent that gets fired when shooting
+	Base.Difficulty = difficulty -- Base : 100, Used in various ways (NOTE: Clamps to (-math.huge, 1000] )
+	Base.LastThrownGrenade = 0 -- Time since a grenade has been thrown
 	
 	
 	
@@ -321,7 +337,7 @@ function class.schema.Setup.NewBase(shootFromLocation : Part, firedBindableEvent
 	
 
 	-- Setup configuration table
-	Base.Configurations = class.schema.Setup.CreateConfigurations(shootFromLocation)
+	Base.Configurations = class.schema.Setup.CreateConfigurations(shootFromLocation, info)
 	
 	return Base
 end
@@ -330,10 +346,10 @@ function class.schema.Setup.CreateGunStatistics(informaton)
 	local statistics = {}
 	
 	statistics.Damage = informaton.Damage -- In HP
-	statistics.ShotDelay = informaton.ShotDelay -- In seconds
+	statistics.ShotDelay = informaton.ShotDelay -- In shots per minute
 	statistics.AmountOfShots = informaton.AmountOfShots -- In bullets
 	statistics.ShotsPerBurst = informaton.ShotsPerBurst -- In amount of bullets per shot
-	statistics.DelayBetweenBurst = informaton.DelayBetweenBurst -- Leave nil if not in burst
+	statistics.DelayBetweenBurst = informaton.DelayBetweenBurst -- In seconds, leave nil if not in burst
 	statistics.Range = informaton.Range -- In studs
 	statistics.BulletDrop = informaton.BulletDrop -- In studs per second, only used when TypeOfBullet type is NOT 1
 	statistics.TypeOfBullet = informaton.TypeOfBullet -- 1 : Raycast, 2 : Part
@@ -345,6 +361,20 @@ function class.schema.Setup.CreateGunStatistics(informaton)
 	statistics.ReserveSize = informaton.ReserveSize -- Total bullets that can be shot
 	statistics.PierceAmount = informaton.PierceAmount -- In amount of parts to pierce, how many parts can be pierced by the bullet, only used if TypeOfBullet is NOT 1
 	statistics.PierceFallOffDamage = informaton.PierceFallOffDamage -- In %, how much damage to take off when piercing a part
+	statistics.GunModuleScript = require(game:GetService("ServerStorage"):WaitForChild("Components"):WaitForChild("BulletComponent"):WaitForChild("BulletComponent"))
+	
+	return statistics
+end
+
+function class.schema.Setup.CreateUtilityStatistics(information)
+	local statistics = {}
+	
+	statistics.CanUseGrenade = information.CanUseGrenade -- bool
+	statistics.GrenadeUseDelay = information.GrenadeUseDelay -- In seconds
+	if information.CanUseGrenade == true then
+		statistics.GrenadeComponent = require(game:GetService("ServerStorage"):WaitForChild("Components"):WaitForChild("UtilityComponents"):WaitForChild("GrenadeComponent"))
+	end
+	statistics.GrenadeStatistics = information.GrenadeStatistics
 	
 	return statistics
 end
@@ -355,6 +385,7 @@ function class.schema.Setup.CreateWeaponInformation(information)
 	weaponInformation.Target = {Favoured = nil, Total = {}} --[[ The favoured value is the previous target shot at, and is much more likely to be chosen.
 	The total value is filled with nested tables with information about enemies that can be seen.]]
 	weaponInformation.GunStatistics = class.schema.Setup.CreateGunStatistics(information.Gun)
+	weaponInformation.UtilityStatistics = class.schema.Setup.CreateUtilityStatistics(information.Utility)
 	
 	
 	return weaponInformation
@@ -563,7 +594,7 @@ function class.schema.VisualiseShootingRaycast(self : BaseCombatAI, distance : n
 	beam:AddTag("Visualiser")
 	beam.Parent = foundFolder
 
-	game:GetService("Debris"):AddItem(beam, self.WeaponInformation.GunStatistics.ShotDelay) -- Destroys the tracer after self.WeaponInformation.GunStatistics.ShotDelay amount of seconds
+	game:GetService("Debris"):AddItem(beam, 360/self.WeaponInformation.GunStatistics.ShotDelay) -- Destroys the tracer after self.WeaponInformation.GunStatistics.ShotDelay amount of seconds
 end
 
 --[[
@@ -652,7 +683,7 @@ Accepts overloads:
 information : table → The table in self.WeaponInformation.Target.Total<index>
 weaponType : number → 1 = gun, 2 = melee
 ]]
-function class.schema.GetTargetScore(self : BaseCombatAI, information : table, weaponType : number) : number
+function class.schema.GetTargetScore(self : BaseCombatAI, information : {}, weaponType : number) : number
 	local toBeAddedScores = {}
 	local score = 0
 
@@ -809,7 +840,7 @@ end
 -- Creates a shot that is fired
 function class.schema.FireGun(self : BaseCombatAI) : nil
 	-- Checks if the time between shots is >= self.WeaponInformation.GunStatistics.ShotDelay, and if not returns
-	if tick()-self.Information.LastShot < self.WeaponInformation.GunStatistics.ShotDelay then
+	if tick()-self.Information.LastShot < 360/self.WeaponInformation.GunStatistics.ShotDelay then
 		return
 	end
 	self.Information.LastShot = tick() -- Updates self.Information.LastShot
@@ -835,8 +866,11 @@ function class.schema.FireGun(self : BaseCombatAI) : nil
 
 	-- Adds in a spread factor to the CFrame.LookAt for where to shoot
 	local function CalculateSpread() : CFrame
-		local spreadX = self.Information.RandomNumberGenerator:NextNumber(-self.WeaponInformation.GunStatistics.XSpread, self.WeaponInformation.GunStatistics.XSpread)
-		local spraedY = self.Information.RandomNumberGenerator:NextNumber(-self.WeaponInformation.GunStatistics.YSpread, self.WeaponInformation.GunStatistics.YSpread)
+		local adjustedX = self.WeaponInformation.GunStatistics.XSpread/100 * (100+(100-self.Information.Difficulty/5))
+		local adjustedY = self.WeaponInformation.GunStatistics.YSpread/100 * (100+(100-self.Information.Difficulty/5))
+		
+		local spreadX = self.Information.RandomNumberGenerator:NextNumber(-adjustedX, adjustedX)
+		local spraedY = self.Information.RandomNumberGenerator:NextNumber(-adjustedY, adjustedY)
 
 		-- Factors spread into the lookAtCFrame
 		local adjustedCFrame = lookAtCFrame * CFrame.Angles(math.rad(spreadX), math.rad(spraedY), 0)
@@ -925,10 +959,6 @@ function class.schema.FireGun(self : BaseCombatAI) : nil
 		end
 		-- Part bullets
 	elseif self.WeaponInformation.GunStatistics.TypeOfBullet == 2 then
-		-- Make sure the game doesn't crash due to total amounts of bullets
-		if #self.ImportantInformation.bulletFolder:GetChildren() >= self.Information.Configurations.WeaponsConfigurations.MaxBulletCount then
-			return
-		end
 
 		local bulletInformation = {}
 
@@ -948,16 +978,11 @@ function class.schema.FireGun(self : BaseCombatAI) : nil
 					Speed = self.WeaponInformation.GunStatistics.BulletSpeed,
 					Pierce = self.WeaponInformation.GunStatistics.PierceAmount,
 					PierceDamageLoss = self.WeaponInformation.GunStatistics.PierceFallOffDamage,
+					StartPosition = self.Information.Configurations.WeaponsConfigurations.ShootFromLocation.Position,
 				}
 
-				-- Create a clone of the bullet, and give it information
-				coroutine.resume(coroutine.create(function()
-					local actor = game:GetService("ServerStorage").Bullet:Clone()
-					actor.Bullet.Position = self.ImportantInformation.rig.Head.CFrame.Position
-					actor.Parent = self.ImportantInformation.bulletFolder
-					task.wait()
-					actor:SendMessage("Inform", bulletInformation)
-				end))
+				-- Call the bullet management script to create a bullet
+				game:GetService("ServerScriptService").BulletManager:SendMessage("ServerCreate", bulletInformation)
 			end
 		end
 	end
@@ -965,10 +990,81 @@ function class.schema.FireGun(self : BaseCombatAI) : nil
 	self.Information.LastShot = tick() -- Updates self.Information.LastShot
 end
 
+-- Throws a grenade at self.WeaponInformation.Target
+function class.schema.ThrowGrenade(self : BaseCombatAI) : nil
+	if self.WeaponInformation.UtilityStatistics.CanUseGrenade == false then
+		return
+	end
+	if self.WeaponInformation.Target.Favoured == nil then
+		return
+	end
+	if tick()-self.Information.LastThrownGrenade < (self.WeaponInformation.UtilityStatistics.GrenadeUseDelay - (self.Information.Difficulty-500)*0.003) then
+		return
+	end
+	
+	local totalGrenades = #game:GetService("CollectionService"):GetTagged("Grenade") - 1
+	
+	if self.Information.Difficulty == 1000 then
+		if totalGrenades >= 10 then
+			return
+		end
+	elseif self.Information.Difficulty >= 750 then
+		if totalGrenades >= 7 then
+			return
+		end
+	elseif self.Information.Difficulty >= 500 then
+		if totalGrenades >= 5 then
+			return
+		end
+	elseif self.Information.Difficulty >= 250 then
+		if totalGrenades >= 2 then
+			return
+		end	
+	else
+		if totalGrenades >= 1 then
+			return
+		end
+	end
+
+	local position = self.ImportantInformation.rig.PrimaryPart.Position
+
+	local fixedLocation = Vector3.new(self.WeaponInformation.Target.Favoured.Position.X, position.Y, self.WeaponInformation.Target.Favoured.Position.Z)
+	
+	local lookAt = CFrame.lookAt(position, fixedLocation)--self.WeaponInformation.Target.Favoured.Position)
+	
+	local x, y, z = lookAt:ToEulerAnglesXYZ()
+	
+	local midX = (fixedLocation - position).Magnitude/2
+	local midY = midX/0.5
+	
+	local vm0 = math.sqrt(math.pow(midX*2, 2) + math.pow(midY, 2))
+	
+	local v0 = lookAt.LookVector * (math.clamp(midX*2-15, 5, math.huge)) + Vector3.new(0, midY, 0)
+	
+	local initialComponents = {
+		Position = position,
+		Velocity = v0,
+	}
+	
+	local co = coroutine.create(function()
+		local grenade = self.WeaponInformation.UtilityStatistics.GrenadeComponent.interface.New(initialComponents, self.WeaponInformation.UtilityStatistics.GrenadeStatistics)
+		table.insert(self.ActiveParts, grenade)
+
+		grenade.Part.Destroying:Connect(function()
+			table.remove(self.ActiveParts, table.find(self.ActiveParts, grenade))
+		end)
+	end)
+	
+	coroutine.resume(co)
+
+	self.Information.LastThrownGrenade = tick()
+end
+
 -- Function used to determine what method of fighting to use
 function class.schema.CombatDecider(self : BaseCombatAI) : nil
 	-- Melee will be added later, probably
 	self.FireGun(self)
+	self.ThrowGrenade(self)
 end
 
 -- Function used to clone certain variables from CombatInformation.GunStatistics
@@ -990,11 +1086,29 @@ function class.schema.CleanUp(self : BaseCombatAI) : nil
 	if self.VisualisationInformation.VisualisationFolder ~= nil then
 		self.VisualisationInformation.VisualisationFolder:Destroy()
 	end
+	
+	-- Destroys any active parts created by this script
+	for i, part in pairs(self.ActiveParts) do
+		if part ~= nil then
+			local s, e = pcall(function()
+				task.synchronize()
+				
+				part.UnsafeRemoval(part)
+			end)
+			if e then
+				print(e)
+			end
+		end
+		
+		if i % 100 == 0 then
+			task.wait()
+		end
+	end
 
-	self.ImportantInformation.script:SetAttribute("Shutoff", true)
+	self.Shutoff = true
 end
 
 -- Creates a new type called "BaseCombatAI"
-type BaseCombatAI = typeof(class.interface.New(table.unpack(...)))
+export type BaseCombatAI = typeof(class.interface.New(table.unpack(...)))
 
 return class
