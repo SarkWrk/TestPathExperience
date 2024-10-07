@@ -18,5 +18,7 @@
   - If the script doesn't see an enemy, then `self.WeaponInformation.Target.Favoured` is set to nil.
 - PathfindingAI:
   - Fixed a bug where `self.ImportantInformation.stateManagerScript<Walkspeed>` would not get reset when the rig could no longer see an enemy.
+  - Will try to avoid the closest grenade within `self.Shootingfunctions.GrenadeAvoidanceRange`.
+    - After the grenade is `self.Shootingfunctions.GrenadeAvoidanceRange` studs away, will recalculate a forced path to the target.
 # 0.0.0 (beta)
 - Initial launch!
