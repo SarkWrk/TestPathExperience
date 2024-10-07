@@ -6,36 +6,37 @@ class.schema.Setup = {}
 class.schema.Visualisation = {}
 class.schema.CustomActionHelpers = {}
 
-function class.interface.New(owner : Script, rig : Model, shootingScript : Script, diedEvent:BindableEvent, stateManagerScript : Script)
-	local self = setmetatable({}, class.metatable)
+function class.interface.New(owner : Script, rig : Model, shootingScript : Script, diedEvent:BindableEvent, stateManagerScript : Script) : BasePathfindingAI
+	local pathfindingAI = setmetatable({}, class.metatable)
 	
-	self.ImportantInformation = {
+	pathfindingAI.ImportantInformation = {
 		["rig"] = rig,
 		["script"] = owner,
 		["shootingScript"] = shootingScript,
 		["stateManagerScript"] = stateManagerScript,
 	}
-	self.Information = class.schema.Setup.SetupBase(self, rig)
-	self.VisualisationInformation = class.schema.Setup.SetupVisualisationConfigurations(rig, self.Information.RandomNumberGenerator)
-	self.ShootingFunctions = class.schema.Setup.SetupShootingConfigurations()
+	pathfindingAI.Information = class.schema.Setup.SetupBase(pathfindingAI, rig)
+	pathfindingAI.VisualisationInformation = class.schema.Setup.SetupVisualisationConfigurations(rig, pathfindingAI.Information.RandomNumberGenerator)
+	pathfindingAI.ShootingFunctions = class.schema.Setup.SetupShootingConfigurations()
+	pathfindingAI.Shutoff = false
 	
 	-- Sets up a listener to set the ShootingFunctions.CanSeeEnemy variable
-	self.ImportantInformation.script:GetAttributeChangedSignal("CanSeeEnemy"):Connect(function()
-		self.ShootingFunctions.CanSeeEnemy = self.ImportantInformation.shootingScript:GetAttribute("CanSeeEnemy")
+	pathfindingAI.ImportantInformation.script:GetAttributeChangedSignal("CanSeeEnemy"):Connect(function()
+		pathfindingAI.ShootingFunctions.CanSeeEnemy = pathfindingAI.ImportantInformation.shootingScript:GetAttribute("CanSeeEnemy")
 	end)
 	
 	-- Sets up a listener for RigDied, and if it fires safely shuts down the programme
 	diedEvent.Event:Connect(function()
-		self.Information.Died = true
+		pathfindingAI.Information.Died = true
 		
-		self.CleanUp(self)
+		pathfindingAI.CleanUp(pathfindingAI)
 	end)
 	
 	-- Sets the Humanoid's movespeed and jump height
-	self.ImportantInformation.rig.Humanoid.WalkSpeed = self.Information.PathfindingInformation.MoveSpeed
-	self.ImportantInformation.rig.Humanoid.JumpPower = self.Information.PathfindingInformation.JumpHeight
+	pathfindingAI.ImportantInformation.rig.Humanoid.WalkSpeed = pathfindingAI.Information.PathfindingInformation.MoveSpeed
+	pathfindingAI.ImportantInformation.rig.Humanoid.JumpPower = pathfindingAI.Information.PathfindingInformation.JumpHeight
 
-	return self
+	return pathfindingAI
 end
 
 function class.schema.Setup.SetupBase(self : BasePathfindingAI, rig)
@@ -109,7 +110,11 @@ function class.schema.Setup.SetupVisualisationConfigurations(rig, RandomNumberGe
 	local VisualisationInformation = {}
 
 	-- Variable used to help show what goal the rig is currently pathing to
-	VisualisationInformation.BillboardTextLabel = rig.BillboardGui.TextLabel or nil -- Attemps to find a BillboardGUI parented to rig to display info on
+	if rig:FindFirstChild("BillboardGui") then
+		VisualisationInformation.BillboardTextLabel = nil -- Attemps to find a BillboardGUI parented to rig to display info on
+	else
+		VisualisationInformation.BillboardTextLabel = nil -- Could not find the BillboardGUI
+	end
 
 	-- Variables used for the VisualisationInformation:PathVisualiser() function
 	VisualisationInformation.VisualisePath = true -- Whether to enable this visualisation
@@ -140,6 +145,7 @@ function class.schema.Setup.SetupShootingConfigurations()
 	ShootingFunctions.ShouldHaltOnSeenEnemy = false -- Whether the programme should halt when seeing an enemy
 	ShootingFunctions.WalkspeedReduction = 5 -- How much to reduce walkspeed by if an enemy can be seen
 	ShootingFunctions.ReducedWalkspeed = false -- A check to see whether the walkspeed has been reduced due to seeing an enemy
+	ShootingFunctions.GrenadeAvoidanceRange = 15 -- How close a grenade needs to be to the AI for the AI to avoid the grenade
 	
 	return ShootingFunctions
 end
@@ -372,6 +378,11 @@ function class.schema.Halt(self : BasePathfindingAI) : nil
 				task.wait()
 			end
 		end
+	else
+		if self.ShootingFunctions.ReducedWalkspeed == true then
+			self.ShootingFunctions.ReducedWalkspeed = false
+			self.ImportantInformation.stateManagerScript:SetAttribute("Walkspeed", self.ImportantInformation.stateManagerScript:GetAttribute("Walkspeed") + self.ShootingFunctions.WalkspeedReduction)
+		end
 	end
 end
 
@@ -441,6 +452,10 @@ function class.schema.ChoosePoint(self : BasePathfindingAI) : Part
 				goalPart = v.PrimaryPart
 			else
 				return nil
+			end
+			
+			if goalPart == nil then
+				continue
 			end
 
 			local distance = (self.ImportantInformation.rig.Head.Position - goalPart.Position).Magnitude -- Calculates the distance
@@ -523,7 +538,7 @@ function class.schema.GetPathfindingWaypoints(self : BasePathfindingAI) : table
 		return path:GetWaypoints()
 	else
 		-- If the path isn't sucessfully created, warns relevant information, halts the programme for 0.5s, and returns an empty table
-		warn("Path status : " .. path.Status.Name .. " | Goal: " .. goal:GetFullName() .. " | Warning : ", no)
+		--warn("Path status : " .. path.Status.Name .. " | Goal: " .. goal:GetFullName() .. " | Warning : ", no)
 		task.wait(0.5)
 		return {}
 	end
@@ -761,6 +776,96 @@ function class.schema.MoveToWaypoint(self : BasePathfindingAI, waypoint : PathWa
 	return true -- Returns true to indicate the rig successfully moved
 end
 
+-- Function to avoid grenades
+function class.schema.AvoidGrenade(self : BasePathfindingAI) : nil
+	local grenades = game:GetService("CollectionService"):GetTagged("Grenade")
+	
+	-- Makes sure that there's at least one grenade in the workspace
+	if table.maxn(grenades) == 0 then
+		return false
+	end
+	
+	-- Shuffles the array for randomness
+	self.Information.RandomNumberGenerator:Shuffle(grenades)
+	
+	-- Sets up some variables used for the following for loop
+	local closestGrenade : {Distance : number, Part : Part} = {Distance = math.huge, Part = nil}
+	local distance
+	
+	--[[For each grenade in the list, go through them and find the closest grenade and track it's distance and instance,
+		For a grenade that is the same distance as the closest distance, there is a 50/50 chance to choose it as the closest]]
+	for _, grenade : Part in pairs(grenades) do
+		distance = (self.ImportantInformation.rig.PrimaryPart.Position - grenade.Position).Magnitude
+		if distance <= self.ShootingFunctions.GrenadeAvoidanceRange and grenade:GetAttribute("Exploding") == true then
+			if closestGrenade.Distance > distance then
+				closestGrenade.Distance = distance
+				closestGrenade.Part = grenade
+			elseif closestGrenade == distance and self.Information.RandomNumberGenerator:NextInteger(1, 2) == 1 then
+				closestGrenade.Distance = distance
+				closestGrenade.Part = grenade
+			end
+		end
+	end
+	
+	-- If there is no grenade that is close enough that it should be avoided, return false
+	if closestGrenade.Distance == math.huge then
+		return false
+	end
+	
+	local oppositeMoveDirection
+	local moveDirection
+	
+	-- Set the Moving attribute to true to show that it's moving
+	self.ImportantInformation.script:SetAttribute("Moving", true)
+	
+	-- Function to make sure that the move Vector3 never has a nan value
+	local function ClampLowVectorValues(vectorComponent : number, multiplier : number) : number
+		local sign = (vectorComponent * multiplier >= 0) or false
+		local output = math.clamp(math.abs(vectorComponent * multiplier), 0, math.huge)
+		
+		if output ~= output then
+			print("Nan'd")
+			return 0
+		end
+		
+		if sign == false then
+			output *= -1
+		end
+		
+		return output
+	end
+	
+	local grenadeDestroyed = false
+	
+	closestGrenade.Part.Destroying:Connect(function()
+		grenadeDestroyed = true
+	end)
+	
+	-- While the rig is within self.ShootingFunctions.GrenadeAvoidanceRange, move away from the grenade
+	while (self.ImportantInformation.rig.PrimaryPart.Position - closestGrenade.Part.Position).Magnitude <= self.ShootingFunctions.GrenadeAvoidanceRange do
+		oppositeMoveDirection = CFrame.lookAt(self.ImportantInformation.rig.PrimaryPart.Position, closestGrenade.Part.Position)
+		moveDirection = self.ImportantInformation.rig.PrimaryPart.Position + Vector3.new(ClampLowVectorValues(oppositeMoveDirection.LookVector.X, -10), ClampLowVectorValues(oppositeMoveDirection.LookVector.Y, -10), ClampLowVectorValues(oppositeMoveDirection.LookVector.Z, -10))
+		self.Information.Humanoid:MoveTo(moveDirection)
+		self.Information.Humanoid.MoveToFinished:Wait()
+		
+		-- If the grenade explodes, don't try to move away from it
+		if grenadeDestroyed == true then
+			break
+		end
+	end
+	
+	-- Set the Moving attribute to false
+	self.ImportantInformation.script:SetAttribute("Moving", false)
+	
+	-- Tells the programme whether to force the calculated path to be the goal based on main.PathfindingInformation.FailureInformation.ForcePathfinding
+	if self.Information.PathfindingInformation.FailureInformation.ForcePathfinding == true then
+		self.Information.PathfindingInformation.ForcedPart = self.Information.Goal
+	end
+	
+	-- Return true to show that the rig (tried to) avoid a grenade
+	return true
+end
+
 -- Function used to loop through each waypoint
 function class.schema.MoveThroughWaypoints(self : BasePathfindingAI) : nil
 	if self.Information.InCycle == true then -- Makes sure that the script will only run once at a time
@@ -796,6 +901,10 @@ function class.schema.MoveThroughWaypoints(self : BasePathfindingAI) : nil
 		if self.Information.Died == true or targetDied == true then -- If the rig or target dies, break out of the loop
 			break
 		end
+		
+		if table.maxn(waypoints) - i <= 15 then
+			break
+		end
 
 		self.Halt(self) -- Halts the programme if the rig is able to see an enemy
 
@@ -805,6 +914,10 @@ function class.schema.MoveThroughWaypoints(self : BasePathfindingAI) : nil
 			end
 
 			task.wait()
+		end
+
+		if self.AvoidGrenade(self) == true then -- Avoid grenades, if applicable. If there is a grenade, reroute path after avoiding it
+			break
 		end
 
 		if self.MoveToWaypoint(self, v) ~= true then -- If main:MoveToWaypoint() returns false, the path is blocked and the loop is broken out of
@@ -823,10 +936,10 @@ function class.schema.CleanUp(self : BasePathfindingAI)
 		self.VisualisationInformation.PathVisualiserFolder:Destroy()
 	end
 
-	self.ImportantInformation.script:SetAttribute("Shutoff", true)
+	self.Shutoff = true
 end
 
 -- Creates a new type called "BasePathfindingAI"
-type BasePathfindingAI = typeof(class.interface.New(table.unpack(...)))
+export type BasePathfindingAI = typeof(class.interface.New(table.unpack(...)))
 
 return class
