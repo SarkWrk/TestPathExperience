@@ -6,7 +6,7 @@ class.schema.Setup = {}
 class.schema.Visualisation = {}
 class.schema.CustomActionHelpers = {}
 
-function class.interface.New(owner : Script, rig : Model, shootingScript : Script, diedEvent:BindableEvent, stateManagerScript : Script) : BasePathfindingAI
+function class.interface.New(owner : Script, rig : Model, pathfindingInformation : {}, shootingScript : Script, diedEvent:BindableEvent, stateManagerScript : Script) : BasePathfindingAI
 	local pathfindingAI = setmetatable({}, class.metatable)
 	
 	pathfindingAI.ImportantInformation = {
@@ -15,9 +15,9 @@ function class.interface.New(owner : Script, rig : Model, shootingScript : Scrip
 		["shootingScript"] = shootingScript,
 		["stateManagerScript"] = stateManagerScript,
 	}
-	pathfindingAI.Information = class.schema.Setup.SetupBase(pathfindingAI, rig)
-	pathfindingAI.VisualisationInformation = class.schema.Setup.SetupVisualisationConfigurations(rig, pathfindingAI.Information.RandomNumberGenerator)
-	pathfindingAI.ShootingFunctions = class.schema.Setup.SetupShootingConfigurations()
+	pathfindingAI.Information = class.schema.Setup.SetupBase(pathfindingAI, rig, pathfindingInformation.PathfindingInformation)
+	pathfindingAI.VisualisationInformation = class.schema.Setup.SetupVisualisationConfigurations(rig, pathfindingAI.Information.RandomNumberGenerator, pathfindingInformation.VisualisationInformation)
+	pathfindingAI.ShootingFunctions = class.schema.Setup.SetupShootingConfigurations(pathfindingInformation.ShootingFunctions)
 	pathfindingAI.Shutoff = false
 	
 	-- Sets up a listener to set the ShootingFunctions.CanSeeEnemy variable
@@ -39,7 +39,7 @@ function class.interface.New(owner : Script, rig : Model, shootingScript : Scrip
 	return pathfindingAI
 end
 
-function class.schema.Setup.SetupBase(self : BasePathfindingAI, rig)
+function class.schema.Setup.SetupBase(self : BasePathfindingAI, rig, info)
 	local Base = {}
 	
 	-- General variables
@@ -54,7 +54,7 @@ function class.schema.Setup.SetupBase(self : BasePathfindingAI, rig)
 	Base.RandomNumberGenerator = Random.new()-- Used to generate random numbers
 	
 	-- Table to store all variables used for pathfinding
-	Base.PathfindingInformation = class.schema.Setup.SetupPathfindingInformation()
+	Base.PathfindingInformation = class.schema.Setup.SetupPathfindingInformation(info)
 
 
 
@@ -64,48 +64,46 @@ function class.schema.Setup.SetupBase(self : BasePathfindingAI, rig)
 	return Base
 end
 
-function class.schema.Setup.SetupPathfindingInformation()
+function class.schema.Setup.SetupPathfindingInformation(info : {Goals : {}, AgentRadius : number, AgentHeight : number, WaypointSpacing : number, LabelCosts : {}, JumpHeight : number, MoveSpeed : number, BannedFolders : {Instances}, SkipClosestChance : number, RecheckPossibleTargets : number, Failureinformation : {ExhaustTime : number, RecalculatePath : boolean, ForcePathfinding : boolean}})
 	local PathfindingInformation = {}
 	
 	-- Table used for the tags that the rig will pathfind to
-	PathfindingInformation.Goals = {
-		"Goal"
-	}
+	PathfindingInformation.Goals = info.Goals
 
 	-- Variables used for the AgentParameters argument when creating a path via PathfindingService:ComputeAsync()
-	PathfindingInformation.AgentRadius = 3
-	PathfindingInformation.AgentHeight = 5
-	PathfindingInformation.WaypointSpacing = 0.5
-	PathfindingInformation.LabelCosts = {Danger = math.huge} --[[Material names and pathfinding modifier/pathfinding link labels
+	PathfindingInformation.AgentRadius = info.AgentRadius
+	PathfindingInformation.AgentHeight = info.AgentHeight
+	PathfindingInformation.WaypointSpacing = info.WaypointSpacing
+	PathfindingInformation.LabelCosts = info.LabelCosts --[[Material names and pathfinding modifier/pathfinding link labels
 																  can be put here to adjust their respective costs to travel on]]
 
 	-- Variables used for controlling the rig's movement
-	PathfindingInformation.JumpHeight = 50 -- Uses Humanoid.JumpPower
-	PathfindingInformation.MoveSpeed = 16 -- In studs/sec
+	PathfindingInformation.JumpHeight = info.JumpHeight -- Uses Humanoid.JumpPower
+	PathfindingInformation.MoveSpeed = info.MoveSpeed -- In studs/sec
 
 	-- Table used for controlling if the rig should recalculate the path due to it being blocked by a ancestor of an object in the table
-	PathfindingInformation.BannedFolders = {workspace.Obstacles}
+	PathfindingInformation.BannedFolders = info.BannedFolders
 
 	-- Variable used for the chance that the rig will skip pathing the nearest goal
-	PathfindingInformation.SkipClosestChance = 50 -- Calculated value is (this)/100 (required to be positive and <= 100)
+	PathfindingInformation.SkipClosestChance = info.SkipClosestChance -- Calculated value is (this)/100 (required to be positive and <= 100)
 
 	PathfindingInformation.ForcedPart = nil -- A variable to store a part to force the programme to pathfind to
-	PathfindingInformation.RecheckPossibleTargets = 2 -- In seconds, if the rig runs out of targets it will halt pathfinding for this long and then try again
+	PathfindingInformation.RecheckPossibleTargets = info.RecheckPossibleTargets -- In seconds, if the rig runs out of targets it will halt pathfinding for this long and then try again
 
 
 
 	-- Table used to store variables for if the rig fails to reach the next checkpoint
-	PathfindingInformation.FailureInformation = {}
+	PathfindingInformation.FailureInformation = info.FailureInformation
 
 	-- Variables used for what to do if the rig never reaches the next Waypoint
-	PathfindingInformation.FailureInformation.ExhaustTime = 5 -- Time is adjusted by distance in studs, at 1 stud away it's x, 2 it's 2x, 0.5 is 0.5x, etc
-	PathfindingInformation.FailureInformation.RecalculatePath = true -- If the programme should calculate a new path on exhaust timeout
-	PathfindingInformation.FailureInformation.ForcePathfinding = true -- Whether to force the programme to pathfind to a part
+	--PathfindingInformation.FailureInformation.ExhaustTime = 5 -- Time is adjusted by distance in studs, at 1 stud away it's x, 2 it's 2x, 0.5 is 0.5x, etc
+	--PathfindingInformation.FailureInformation.RecalculatePath = true -- If the programme should calculate a new path on exhaust timeout
+	--PathfindingInformation.FailureInformation.ForcePathfinding = true -- Whether to force the programme to pathfind to a part
 	
 	return PathfindingInformation
 end
 
-function class.schema.Setup.SetupVisualisationConfigurations(rig, RandomNumberGenerator)
+function class.schema.Setup.SetupVisualisationConfigurations(rig, RandomNumberGenerator, info : {VisualisePath : boolean, VisualisationSpacing : number, NormalNodeSize : number, JumpNodeSizeMultiplier : number, CustomNodeSizeMultiplier : number, VisualiseChoosing : boolean, ShowChoosingCircle : boolean, ChoosingCircleExpansionDelay : number, HeightAppearenceWaitTime : number})
 	-- A table to contain extra variables and functions related to visualising the main programme
 	local VisualisationInformation = {}
 
@@ -117,24 +115,24 @@ function class.schema.Setup.SetupVisualisationConfigurations(rig, RandomNumberGe
 	end
 
 	-- Variables used for the VisualisationInformation:PathVisualiser() function
-	VisualisationInformation.VisualisePath = true -- Whether to enable this visualisation
-	VisualisationInformation.VisualisationSpacing = 4 -- How far to space each visualised point (must be >= main.PathfindingInformation.WaypointSpacing)
+	VisualisationInformation.VisualisePath = info.VisualisePath -- Whether to enable this visualisation
+	VisualisationInformation.VisualisationSpacing = info.VisualisationSpacing -- How far to space each visualised point (must be >= main.PathfindingInformation.WaypointSpacing)
 	VisualisationInformation.FolderToSavePathVisualiserName = "Visualiser" .. RandomNumberGenerator:NextNumber(1, 1000) -- Creates a name for the visualisation folder
 	VisualisationInformation.PathVisualiserFolder = nil -- Stores the folder when created
-	VisualisationInformation.NormalNodeSize = 0.5 -- The size of the visualised node (given as a Vector3.new(x,x,x))
-	VisualisationInformation.JumpNodeSizeMultiplier = 4 -- The size given of the visualised node with each value being the normal node size multiplied by x
-	VisualisationInformation.CustomNodeSizeMultipler = 8 -- The size given of the visualised node with each value being the normal node size multiplied by x
+	VisualisationInformation.NormalNodeSize = info.NormalNodeSize -- The size of the visualised node (given as a Vector3.new(x,x,x))
+	VisualisationInformation.JumpNodeSizeMultiplier = info.JumpNodeSizeMultiplier -- The size given of the visualised node with each value being the normal node size multiplied by x
+	VisualisationInformation.CustomNodeSizeMultipler = info.CustomNodeSizeMultiplier -- The size given of the visualised node with each value being the normal node size multiplied by x
 
 	-- Variables used for the main.PathfindingInformation:ChosenVisualiser() function
-	VisualisationInformation.VisualiseChoosing = false -- Whether to enable this visualisation
-	VisualisationInformation.ShowChoosingCircle = true -- Whether to show the distance circle
-	VisualisationInformation.ChoosingCircleExpansionDelay = 0.0005 -- How long the programme waits between expanding the circle
-	VisualisationInformation.HighlightAppearenceWaitTime = 1 -- How long the programme waits after reaching the chosen goal
+	VisualisationInformation.VisualiseChoosing = info.VisualiseChoosing -- Whether to enable this visualisation
+	VisualisationInformation.ShowChoosingCircle = info.ShowChoosingCircle -- Whether to show the distance circle, WILL NOT RUN IF VisualiseChoosing IS FALSE
+	VisualisationInformation.ChoosingCircleExpansionDelay = info.ChoosingCircleExpansionDelay -- How long the programme waits between expanding the circle
+	VisualisationInformation.HighlightAppearenceWaitTime = info.HeightAppearenceWaitTime -- How long the programme waits after reaching the chosen goal
 	
 	return  VisualisationInformation
 end
 
-function class.schema.Setup.SetupShootingConfigurations()
+function class.schema.Setup.SetupShootingConfigurations(info : {ShouldHaltOnSeenenemy : boolean, WalkspeedReduction : number, GrenadeAvoidanceRange : number})
 	-- Sets up a table to store shootingScript functionality
 	local ShootingFunctions = {}
 
@@ -142,10 +140,10 @@ function class.schema.Setup.SetupShootingConfigurations()
 
 	-- Sets up some variables used for the functions in the table
 	ShootingFunctions.CanSeeEnemy = false -- Used in ShootingFunctions:Halt()
-	ShootingFunctions.ShouldHaltOnSeenEnemy = false -- Whether the programme should halt when seeing an enemy
-	ShootingFunctions.WalkspeedReduction = 5 -- How much to reduce walkspeed by if an enemy can be seen
+	ShootingFunctions.ShouldHaltOnSeenEnemy = info.ShouldHaltOnSeenenemy -- Whether the programme should halt when seeing an enemy
+	ShootingFunctions.WalkspeedReduction = info.WalkspeedReduction -- How much to reduce walkspeed by if an enemy can be seen
 	ShootingFunctions.ReducedWalkspeed = false -- A check to see whether the walkspeed has been reduced due to seeing an enemy
-	ShootingFunctions.GrenadeAvoidanceRange = 15 -- How close a grenade needs to be to the AI for the AI to avoid the grenade
+	ShootingFunctions.GrenadeAvoidanceRange = info.GrenadeAvoidanceRange -- How close a grenade needs to be to the AI for the AI to avoid the grenade
 	
 	return ShootingFunctions
 end
