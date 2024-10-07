@@ -229,11 +229,3 @@ while task.wait() do
 end
 
 AI.CleanUp()
-
-while task.wait() do
-	if combatAI.Shutoff == true and pathfindingAI.Shutoff == true then
-		break
-	end
-end
-
-script:SetAttribute("Shutoff", true)
