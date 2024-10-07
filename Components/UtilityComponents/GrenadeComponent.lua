@@ -20,97 +20,104 @@ function class.interface.New(information : table, customisation : table) : Grena
 	part.Parent = workspace.Utilities
 	part.AssemblyLinearVelocity = information.Velocity
 	
+	grenade.Part = part
+	
 	grenade.Information = class.schema.Setup(customisation)
 	
-	--local tickSound = Instance.new("Sound")
-	--tickSound.SoundId = "rbxassetid://" .. 1
-	--tickSound.Parent = parent
-	
-	local ylevel1 = 0
-	local ylevel2 = 0
-	local ylevel3 = 0
-	local ylevel4 = 0
-	local ylevel5 = 0
-	local ylevel6 = 0
-	local ylevel7 = 0
-	local ylevel8 = 0
-	local ylevel9 = 0
-	local ylevel10 = 0
-	
-	while task.wait() do
-		ylevel1 = ylevel2
-		ylevel2 = ylevel3
-		ylevel3 = ylevel4
-		ylevel4 = ylevel5
-		ylevel5 = ylevel6
-		ylevel6 = ylevel7
-		ylevel7 = ylevel8
-		ylevel8 = ylevel9
-		ylevel9 = ylevel10
-		ylevel10 = math.round(part.Position.Y*10000)
-		
-		--if ylevel10 = ylevel1 then
-		--	if ylevel10 == ylevel2 then
-		--		if ylevel10 == ylevel3 then
-		--			if ylevel10 == ylevel4 then
-		--				if ylevel10 == ylevel5 then
-							--if ylevel10 == ylevel6 then
-								if ylevel10 == ylevel7 then
-									if ylevel10 == ylevel8 then
-										if ylevel10 == ylevel9 then
-											break
-										end
-									end
-								end
-							--end
-		--				end
-		--			end
-		--		end
-		--	end
-		--end
-	end
-	
-	if grenade.Information.StartedExploding == true then
-		return
-	end
-	
-	grenade.Information.StartedExploding = true
-	
-	local startTime = tick()
-	local soundTime = tick()
+	coroutine.resume(coroutine.create(function()
+		--local tickSound = Instance.new("Sound")
+		--tickSound.SoundId = "rbxassetid://" .. 1
+		--tickSound.Parent = parent
 
-	local speedTween = game:GetService("TweenService"):Create(part, TweenInfo.new(2, Enum.EasingStyle.Linear), {AssemblyLinearVelocity = Vector3.new(0,0,0)})
-	speedTween:Play()
+		local ylevel1 = nil
+		local ylevel2 = nil
+		local ylevel3 = nil
+		local ylevel4 = nil
+		local ylevel5 = nil
+		local ylevel6 = nil
+		local ylevel7 = nil
+		local ylevel8 = nil
+		local ylevel9 = nil
+		local ylevel10 = 0
 
-	while task.wait() do
-		if tick()-startTime >= grenade.Information.ExplosionDelay then
-			break
-		elseif (tick()-soundTime) >= 1 then
-			--tickSound:Play()
-			soundTime = tick()
+		while task.wait() do
+			ylevel1 = ylevel2
+			ylevel2 = ylevel3
+			ylevel3 = ylevel4
+			ylevel4 = ylevel5
+			ylevel5 = ylevel6
+			ylevel6 = ylevel7
+			ylevel7 = ylevel8
+			ylevel8 = ylevel9
+			ylevel9 = ylevel10
+			ylevel10 = math.round(part.Position.Y*10000)
+
+			--if ylevel10 = ylevel1 then
+			--	if ylevel10 == ylevel2 then
+			--		if ylevel10 == ylevel3 then
+			--			if ylevel10 == ylevel4 then
+			--				if ylevel10 == ylevel5 then
+			if ylevel10 == ylevel6 then
+				if ylevel10 == ylevel7 then
+					if ylevel10 == ylevel8 then
+						if ylevel10 == ylevel9 then
+							break
+						end
+					end
+				end
+			end
+			--				end
+			--			end
+			--		end
+			--	end
+			--end
 		end
-	end
-	
-	--local sound = Instance.new("Sound")
-	--sound.SoundId = "rbxassetid://" .. 1
-	local explosion = Instance.new("Explosion")
-	explosion.BlastRadius = 0
 
-	--sound.Parent = parent
-	--sound:Play()
+		if grenade.Information.StartedExploding == true then
+			return
+		end
 
-	explosion.Position = part.Position
-	explosion.Parent = part
+		grenade.Information.StartedExploding = true
 
-	class.schema.Explode(grenade, part.Position)
+		grenade.Part:SetAttribute("Exploding", true)
 
-	part.Transparency = 1
-	
-	speedTween:Pause()
+		local startTime = tick()
+		local soundTime = tick()
 
-	task.wait(0.05)
+		local speedTween = game:GetService("TweenService"):Create(part, TweenInfo.new(2, Enum.EasingStyle.Linear), {AssemblyLinearVelocity = Vector3.new(0,0,0)})
+		speedTween:Play()
 
-	game:GetService("Debris"):AddItem(part, 0)
+		while task.wait() do
+			if tick()-startTime >= grenade.Information.ExplosionDelay then
+				break
+			elseif (tick()-soundTime) >= 1 then
+				--tickSound:Play()
+				soundTime = tick()
+			end
+		end
+
+		--local sound = Instance.new("Sound")
+		--sound.SoundId = "rbxassetid://" .. 1
+		local explosion = Instance.new("Explosion")
+		explosion.BlastRadius = 0
+		explosion.TimeScale = 0.5
+
+		--sound.Parent = parent
+		--sound:Play()
+
+		explosion.Position = part.Position
+		explosion.Parent = part
+
+		class.schema.Explode(grenade, part.Position)
+
+		part.Transparency = 1
+
+		speedTween:Pause()
+
+		task.wait(0.05)
+
+		game:GetService("Debris"):AddItem(part, 0)
+	end))
 	
 	return grenade
 end
@@ -137,6 +144,10 @@ function class.schema.GetFilter(tags : table) : table
 	end
 	
 	return filtered
+end
+
+function class.schema.UnsafeRemoval(self : Grenade) : nil
+	game:GetService("Debris"):AddItem(self.Part, 0)
 end
 
 function class.schema.Explode(self : Grenade, position : Vector3) : nil
