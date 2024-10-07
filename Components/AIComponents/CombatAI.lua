@@ -4,10 +4,10 @@ class.schema = {}
 class.metatable = {__index = class.schema}
 class.schema.Setup = {}
 
-function class.interface.New(owner : script, rig : Model, diedEvent : BindableEvent, locationToShootFrom : Part, weaponInformation : {Gun : {}, Utility : {}}, firedBindableEvent : BindableEvent, difficulty : number) : BaseCombatAI
+function class.interface.New(owner : script, rig : Model, combatInformation : {}, diedEvent : BindableEvent, locationToShootFrom : Part, weaponInformation : {Gun : {}, Utility : {}}, firedBindableEvent : BindableEvent, difficulty : number) : BaseCombatAI
 	local CombatAI = setmetatable({}, class.metatable)
 
-	CombatAI.Information = class.schema.Setup.NewBase(locationToShootFrom, firedBindableEvent, difficulty)
+	CombatAI.Information = class.schema.Setup.NewBase(locationToShootFrom, firedBindableEvent, difficulty, combatInformation.Configurations)
 	CombatAI.WeaponInformation = class.schema.Setup.CreateWeaponInformation(weaponInformation)
 	CombatAI.VisualisationInformation = class.schema.Setup.CreateVisualisationInformation(CombatAI.Information.RandomNumberGenerator)
 	CombatAI.RBXScriptConnections = {}
@@ -207,77 +207,78 @@ function class.interface.New(owner : script, rig : Model, diedEvent : BindableEv
 	return CombatAI
 end
 
-function class.schema.Setup.CreateConfigurations(location : Part)
+function class.schema.Setup.CreateConfigurations(location : Part, info : {AllowAdjustableSettings : boolean, VisualCheckDelay : number, RaycastStart : string, EnemyTableUpdateDelay : number, ViewDistance : number, ViewRadius : number, EnemyTags : {}, WeaponConfigurations : {MeleeAvailable : boolean, GunAvailable : boolean, NewTargetChance : number, GunScoreMultipliers : {DistanceScoreMultiplier : number, HealthScoreMultiplier : number, ThreatLevelScoreMultiplier : number, DefenseScoreMultiplier : number}, ShootingRaycastParams : {FilterType : string, FilterDecendents : {}},}, ["RaycastParams"] : {FilterType : string, RespectCanCollide : boolean, IgnoreInViewChecking : {}}, Attributes : {}})
 	-- Sets up the configuration table
 	local Configurations = {}
 
 
 
 	-- Predefines some information in Information.Configuration
-	Configurations.AllowAdjustableSettings = true -- Whether to allow other scripts to change configuration settings in the script via attribute changes
-	Configurations.VisualCheckDelay = 0.1 -- Used to delay times between raycasting, in seconds
-	Configurations.RaycastStart = "Head" -- A string identifier for the part used to check from. Must be a child of the rig
-	Configurations.EnemyTableUpdateDelay = 0.1 -- Used to decide how often to update Base.EnemyTable, in seconds
-	Configurations.ViewDistance = 100 -- How far the rig can see, in studs
-	Configurations.ViewRadius = 30 -- FOV of the rig, in +/-x, therefore: FOV is double what is set
-	Configurations.EnemyTags = { --[[
-Table to store enemies that are tagged.
-Can be added and removed from via script.ChangeEnemyTable if Base.Configurations.AllowAdjustableSettings is set to true.
-Information on how to add/remove folders will be in the listener event function.
-]]
-		"Goal",
-	}
+	Configurations.AllowAdjustableSettings = info.AllowAdjustableSettings -- Whether to allow other scripts to change configuration settings in the script via attribute changes
+	Configurations.VisualCheckDelay = info.VisualCheckDelay -- Used to delay times between raycasting, in seconds
+	Configurations.RaycastStart = info.RaycastStart -- A string identifier for the part used to check from. Must be a child of the rig
+	Configurations.EnemyTableUpdateDelay = info.EnemyTableUpdateDelay -- Used to decide how often to update Base.EnemyTable, in seconds
+	Configurations.ViewDistance = info.ViewDistance -- How far the rig can see, in studs
+	Configurations.ViewRadius = info.ViewRadius -- FOV of the rig, in +/-x, therefore: FOV is double what is set
+	Configurations.EnemyTags = info.EnemyTags
+--	Configurations.EnemyTags = { --[[
+--Table to store enemies that are tagged.
+--Can be added and removed from via script.ChangeEnemyTable if Base.Configurations.AllowAdjustableSettings is set to true.
+--Information on how to add/remove folders will be in the listener event function.
+--]]
+--		"Goal",
+--	}
 
 
 
 	-- Table used to store configuations for self.WeaponInformation
-	Configurations.WeaponsConfigurations = {}
+	Configurations.WeaponsConfigurations = info.WeaponConfigurations
 
-	-- Predefined variables used for weapons
-	Configurations.WeaponsConfigurations.MeleeAvailable = false -- Whether the script will allow meleeing
-	Configurations.WeaponsConfigurations.GunAvailable = true -- Whether the script will allow shooting
-	Configurations.WeaponsConfigurations.NewTargetChance = 0 -- Chance to target a new target if the previous target is still visible
+	---- Predefined variables used for weapons
+	--Configurations.WeaponsConfigurations.MeleeAvailable = false -- Whether the script will allow meleeing
+	--Configurations.WeaponsConfigurations.GunAvailable = true -- Whether the script will allow shooting
+	--Configurations.WeaponsConfigurations.NewTargetChance = 0 -- Chance to target a new target if the previous target is still visible
 	Configurations.WeaponsConfigurations.ShootFromLocation = location -- The part which shooting functions use to shoot from
 
 
 
 	-- Table to store all the score multipliers for targetting with a gun
-	Configurations.WeaponsConfigurations.GunScoreMultipliers = {}
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers = {}
 
-	-- The score multipliers
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.DistanceScoreMultiplier = 1 -- How much to multiply the distance the target is by x
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier = 2 -- How much to multiply the health of the target by x
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier = 3  -- How much to multiply the threat level of the target by x
-	Configurations.WeaponsConfigurations.GunScoreMultipliers.DefenseScoreMultiplier = 10  -- How much to multiply the defense of the target by x
+	---- The score multipliers
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.DistanceScoreMultiplier = 1 -- How much to multiply the distance the target is by x
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.HealthScoreMultiplier = 2 -- How much to multiply the health of the target by x
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.ThreatLevelScoreMultiplier = 3  -- How much to multiply the threat level of the target by x
+	--Configurations.WeaponsConfigurations.GunScoreMultipliers.DefenseScoreMultiplier = 10  -- How much to multiply the defense of the target by x
 
 
 
 	-- Sets up a table that stores the parameters for a RaycastParams.new() used in the "Raycast" bullet type
-	Configurations.WeaponsConfigurations.ShootingRaycastParams = {}
+	--Configurations.WeaponsConfigurations.ShootingRaycastParams = {}
 
 	-- Defines the variables
-	Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType = "Exclude"
-	Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of tags to get filtered in/out by the raycast
-		"AI",
-		"Bullet",
-		"Enemy Utilities",
-	}
+	--Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterType = "Exclude"
+	--Configurations.WeaponsConfigurations.ShootingRaycastParams.FilterDecendents = { -- Table of tags to get filtered in/out by the raycast
+	--	"AI",
+	--	"Bullet",
+	--	"Enemy Utilities",
+	--}
 
 	-- Table to store configurations for the RaycastParams for the viewcheck raycast
-	Configurations.RaycastParams = {}
+	Configurations.RaycastParams = info.RaycastParams
 
 	-- Predefined variables inside Base.Configurations.RaycastParams
-	Configurations.RaycastParams.FilterType = "Exclude" -- Case specific
-	Configurations.RaycastParams.RespectCanCollide = false
-	Configurations.RaycastParams.IgnoreInViewChecking = { --[[
-Table used to store tagged parts that the rig should ignore when checking if it can see an enemy.
-Can be added and removed from via script.ChangeIgnoreViewTable if Base.Configurations.AllowAdjustableSettings is set to true.
-Information on how to add/remove parts will be in the listener event function.
-]]
-		"AI",
-		"Bullet",
-		"Enemy Utilities",
-	}
+--	Configurations.RaycastParams.FilterType = "Exclude" -- Case specific
+--	Configurations.RaycastParams.RespectCanCollide = false
+--	Configurations.RaycastParams.IgnoreInViewChecking = { --[[
+--Table used to store tagged parts that the rig should ignore when checking if it can see an enemy.
+--Can be added and removed from via script.ChangeIgnoreViewTable if Base.Configurations.AllowAdjustableSettings is set to true.
+--Information on how to add/remove parts will be in the listener event function.
+--]]
+--		"AI",
+--		"Bullet",
+--		"Enemy Utilities",
+--	}
 
 
 
@@ -303,7 +304,7 @@ Use "/" to denote a subfolder.
 	return Configurations
 end
 
-function class.schema.Setup.NewBase(shootFromLocation : Part, firedBindableEvent : BindableEvent, difficulty : number)
+function class.schema.Setup.NewBase(shootFromLocation : Part, firedBindableEvent : BindableEvent, difficulty : number, info : {})
 	local Base = {}
 	
 	Base.RunService = game:GetService("RunService")
@@ -336,7 +337,7 @@ function class.schema.Setup.NewBase(shootFromLocation : Part, firedBindableEvent
 	
 
 	-- Setup configuration table
-	Base.Configurations = class.schema.Setup.CreateConfigurations(shootFromLocation)
+	Base.Configurations = class.schema.Setup.CreateConfigurations(shootFromLocation, info)
 	
 	return Base
 end
