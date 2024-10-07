@@ -37,7 +37,19 @@ function class.interface.New(info : {
 	self.Combat = require(script.Parent:WaitForChild("CombatAI")).interface.New(info.owner, info.rig, info.combatInformation, info.diedEvent, info.locationToShootFrom, info.weaponInformation, info.firedEvent, info.difficulty)
 	self.Pathfinding = require(script.Parent:WaitForChild("PathfindingAI")).interface.New(info.owner, info.rig, info.pathfindingInformation, info.shootingScript, info.diedEvent, info.stateManagerScript)
 	
+	coroutine.resume(coroutine.create(function()
+		self.Shutoff(self, info.owner)
+	end))
+	
 	return self
+end
+
+function class.schema.Shutoff(self : BaseAI, owner : Script)
+	while self.Combat.Shutoff == false and self.Pathfinding.Shutoff == false do
+		task.wait()
+	end
+	
+	owner:SetAttribute("Shutoff", true)
 end
 
 function class.schema.CleanUp(self : BaseAI)
