@@ -2,6 +2,7 @@ local rig = script.Parent.Parent -- The rig
 local humanoid = rig.Humanoid -- The humanoid
 
 humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) -- Stops the rig from falling down
+script.Parent.Parent.PrimaryPart:SetNetworkOwner(nil) -- Ensures the client never the owner
 
 -- Fires the RigDied BindableEvent when Humanoid.Died fires
 humanoid.Died:Connect(function()
