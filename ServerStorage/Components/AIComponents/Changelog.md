@@ -1,3 +1,7 @@
+# 1.1.0 (beta)
+- AI:
+  - AI configurations are now a Type. The typechecking is now using that Type. No code changes are required.
+  - Changed it so that it pathfindingScript and shootingScript are not owner, they will individually have the attribute "Shutoff" set to true when their respective classes have shut down.
 # 1.0.0 (beta)
 - **Major Changes**:
   - **ALL CONFIGURATIONS ARE NOW PASSED TO AI, CONFIGURATIONS ARE NO LONGER DEFINED IN THEIR REPSECTIVE SCRIPTS**
